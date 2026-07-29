@@ -1,3 +1,10 @@
+aiosqlite==0.21.0
+alembic==1.17.1
+asyncpg==0.30.0
+email-validator==2.3.0
 fastapi==0.140.13
+pwdlib[argon2]==0.3.0
 pydantic-settings==2.14.2
+PyJWT==2.10.1
+SQLAlchemy[asyncio]==2.0.44
 uvicorn==0.52.0

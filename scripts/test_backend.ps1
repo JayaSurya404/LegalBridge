@@ -10,9 +10,19 @@ if (-not (Test-Path -LiteralPath $pythonExecutable -PathType Leaf)) {
 
 Push-Location $serverRoot
 try {
-    & $pythonExecutable -m ruff check --no-cache app tests
+    & $pythonExecutable -m ruff check --fix --no-cache app tests alembic
     if ($LASTEXITCODE -ne 0) {
-        throw "Ruff failed with code $LASTEXITCODE."
+        throw "Ruff safe fixes failed with code $LASTEXITCODE."
+    }
+
+    & $pythonExecutable -m ruff format --no-cache app tests alembic
+    if ($LASTEXITCODE -ne 0) {
+        throw "Ruff formatting failed with code $LASTEXITCODE."
+    }
+
+    & $pythonExecutable -m ruff check --no-cache app tests alembic
+    if ($LASTEXITCODE -ne 0) {
+        throw "Final Ruff check failed with code $LASTEXITCODE."
     }
 
     & $pythonExecutable -m pytest tests

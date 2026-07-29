@@ -4,12 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "legalbridge-india-api"
-version = "0.2.0"
-description = "Frontend-adjacent FastAPI foundation for the LegalBridge India hackathon prototype."
+version = "0.3.0"
+description = "Persistence and authentication API for the LegalBridge India prototype."
 requires-python = ">=3.10"
 dependencies = [
+  "aiosqlite==0.21.0",
+  "alembic==1.17.1",
+  "asyncpg==0.30.0",
+  "email-validator==2.3.0",
   "fastapi==0.140.13",
+  "pwdlib[argon2]==0.3.0",
   "pydantic-settings==2.14.2",
+  "PyJWT==2.10.1",
+  "SQLAlchemy[asyncio]==2.0.44",
   "uvicorn==0.52.0",
 ]
 
@@ -30,4 +37,5 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["B", "E", "F", "I", "UP"]
+select = ["E", "F", "I", "B", "UP", "ASYNC"]
+ignore = ["B008"]

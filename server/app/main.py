@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from time import perf_counter
 from uuid import uuid4
 
@@ -16,6 +17,7 @@ from app.api.router import api_router
 from app.core.config import Settings, get_settings
 from app.core.errors import register_exception_handlers, unexpected_error_response
 from app.core.logging import configure_logging
+from app.db.session import Database
 from app.schemas.common import RootServiceResponse
 
 LOGGER = logging.getLogger("legalbridge.api")
@@ -38,10 +40,17 @@ def _request_id(request: Request) -> str:
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
-    """Create a configured FastAPI application without external service dependencies."""
+    """Create the configured API without creating or migrating database tables."""
 
     app_settings = settings or get_settings()
     configure_logging(app_settings.log_level)
+    database = Database(app_settings.database_url, echo=app_settings.sql_echo)
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        del application
+        yield
+        await database.dispose()
 
     docs_url = "/docs" if app_settings.docs_enabled else None
     redoc_url = "/redoc" if app_settings.docs_enabled else None
@@ -54,14 +63,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         docs_url=docs_url,
         redoc_url=redoc_url,
         openapi_url=openapi_url,
+        lifespan=lifespan,
     )
     application.state.settings = app_settings
+    application.state.database = database
 
     application.add_middleware(
         CORSMiddleware,
         allow_origins=app_settings.cors_origins,
         allow_credentials=False,
-        allow_methods=["GET", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["*"],
         expose_headers=["X-Request-ID", "X-Process-Time-Ms"],
     )

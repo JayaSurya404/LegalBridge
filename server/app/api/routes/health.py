@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request
 
 from app import __version__
 from app.core.config import Settings
+from app.db.session import Database
 from app.schemas.health import (
     CapabilitiesResponse,
     ComponentReadiness,
@@ -33,11 +34,13 @@ async def health(request: Request) -> HealthResponse:
 
 
 @router.get("/ready", response_model=ReadinessResponse)
-async def ready() -> ReadinessResponse:
+async def ready(request: Request) -> ReadinessResponse:
+    database: Database = request.app.state.database
+    database_ready = await database.ping()
     return ReadinessResponse(
-        ready=True,
+        ready=database_ready,
         api=ComponentReadiness(status="ready"),
-        database=ComponentReadiness(status="not_configured"),
+        database=ComponentReadiness(status="ready" if database_ready else "unavailable"),
         storage=ComponentReadiness(status="not_configured"),
         ai=ComponentReadiness(status="not_configured"),
     )

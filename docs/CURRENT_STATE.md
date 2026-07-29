@@ -42,6 +42,20 @@ Updated: 29 July 2026
 - Added exact runtime and development dependency pins, a repository-local `server/.venv`, focused endpoint tests, Ruff configuration, an environment example, and PowerShell start/test helpers.
 - The frontend remains in deterministic `mock` mode; its unavailable HTTP adapter was not activated or changed.
 
+## Phase 3 persistence and authentication completed
+
+- Added async SQLAlchemy 2.0 configuration and sessions with local SQLite and PostgreSQL-compatible models.
+- Added Alembic configuration and the initial migration for organisations, users, refresh sessions, cases, document metadata, and audit events. Normal application startup does not create tables.
+- Added organisation-scoped `admin`, `attorney`, and `reviewer` identities; Argon2 password hashing; HS256 access tokens; rotating, revocable refresh sessions; token-version invalidation; role dependencies; and generic login failures.
+- Added administrator-only user provisioning and activation controls, including self-deactivation protection and audit events.
+- Added organisation-isolated case list, create, read, update, and archive APIs. Cross-organisation access returns 404, and assigned attorneys must be active attorneys in the same organisation.
+- Added JSON-only PDF, TXT, and DOCX metadata APIs with filename, declared-size, SHA-256, duplicate, and 50 MB validation. No binary content is accepted or stored.
+- Added case audit history ordered newest first and audit writes for sign-in, password changes, user management, case mutations, document metadata mutations, and demo bootstrap.
+- Updated readiness to query the configured database and capabilities to report the Phase 3 boundary accurately.
+- Applied the initial migration to the ignored local `server/legalbridge.db` and ran the idempotent synthetic demo bootstrap.
+- Added `scripts/init_backend_data.ps1` for migration and bootstrap initialization.
+- The frontend remains unchanged in deterministic `mock` mode; real frontend/backend integration has not started.
+
 ## Routes and surfaces inspected
 
 Public routes:
@@ -78,7 +92,8 @@ Also inspected the root loading, error, and not-found boundaries; authentication
 - Only the preloaded synthetic matter contains the closed timeline, contradiction, procedural, research, strategy, ethics, citation, and motion fixtures.
 - Browser-local state is neither secure nor authoritative.
 - Browser print/Save as PDF is the only export mechanism and never files anything with a court.
-- The FastAPI service is a foundation only. There is no production authentication, database, Supabase, cloud storage, OCR, document processing, AI/model integration, RAG, real legal research, verified legal corpus, backend multi-agent execution, citation verification, streaming, server-side PDF generation, or automatic filing.
+- The FastAPI service now persists Phase 3 organisations, users, authentication sessions, cases, document metadata, and audit events locally.
+- There is no binary or cloud storage, Supabase connection, OCR, document parsing, transcription, AI/model integration, RAG, embeddings, pgvector, real legal research, verified legal corpus, backend multi-agent execution, citation verification, motion generation, streaming, server-side PDF generation, digital signature, or automatic filing.
 
 ## Verification
 
@@ -89,6 +104,13 @@ Also inspected the root loading, error, and not-found boundaries; authentication
 - Pytest's cache provider is disabled in backend test configuration because cache-directory creation blocked during session teardown in the managed workspace.
 - By user request, this Phase 2 work did not run frontend lint, build, check, development server, browser automation, or localhost testing.
 - No frontend or backend development server was started.
+- Phase 3 dependency installation completed inside `server/.venv`.
+- Alembic upgrade `0001_phase3` completed against the local SQLite database.
+- The demo bootstrap completed and created the synthetic organisation, admin, attorney, case, and bootstrap audit event without exposing secrets in logs.
+- Ruff safe fixes completed with 6 fixes, Ruff formatting completed with 6 files reformatted, and the final Ruff check passed with `All checks passed!`.
+- Focused Phase 3 pytest completed with 17 passing tests in 4.30 seconds.
+- The test run retained one dependency deprecation warning from FastAPI's compatibility `TestClient`; the requested pinned HTTPX version was preserved.
+- Pytest required managed filesystem permission for isolated temporary SQLite databases; no test used the development database.
 
 ## Package and installation status
 
@@ -97,13 +119,14 @@ Also inspected the root loading, error, and not-found boundaries; authentication
 - Created `server/.venv` with Python 3.12.10 and installed only the exact backend pins from `server/requirements-dev.txt`.
 - Runtime pins: FastAPI 0.140.13, Uvicorn 0.52.0, and pydantic-settings 2.14.2.
 - Development pins: HTTPX 0.28.1, pytest 9.1.1, and Ruff 0.16.0.
+- Phase 3 runtime pins added: aiosqlite 0.21.0, Alembic 1.17.1, asyncpg 0.30.0, email-validator 2.3.0, pwdlib 0.3.0 with Argon2, PyJWT 2.10.1, and SQLAlchemy 2.0.44 with asyncio support.
 - No package was installed globally, and no local `.env` containing credentials was created.
 
 ## Git and phase boundary
 
-- The handoff working tree contains unstaged Phase 2 backend and documentation changes; no frontend file is modified in the current Git status.
+- The handoff working tree contains unstaged Phase 3 backend and documentation changes; no frontend file was modified by Phase 3.
 - No files were staged.
 - No commit or push was performed.
 - No branch, remote, or Git history change was performed.
-- The authorised Phase 2 FastAPI foundation is complete and was not started as a live server.
-- Phase 3 was not started.
+- The authorised Phase 3 persistence and authentication backend is complete and was not started as a live server.
+- Phase 4 was not started.
