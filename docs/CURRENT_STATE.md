@@ -5,9 +5,9 @@ Updated: 29 July 2026
 ## Repository state found
 
 - Existing pnpm workspace on branch `main`, tracking the unchanged `origin` remote.
-- The working tree was clean at the start of this continuation.
+- Phase 2 work did not modify existing frontend files or frontend package manifests.
 - `node_modules` was already present; dependency installation was not needed.
-- The Next.js client, documentation-only `server/` boundary, synthetic fixtures, local Zustand state, typed API abstraction, and all required route files were already present.
+- The Next.js client, synthetic fixtures, local Zustand state, typed API abstraction, and all required route files were already present.
 
 ## Frontend already present
 
@@ -31,6 +31,16 @@ Updated: 29 July 2026
 - Added print-view draft watermarking, more complete approval preconditions, invalid/stale approval states, and dynamic locked-export explanations.
 - Connected case-wizard and attorney-review errors to their inputs for assistive technology.
 - Corrected the mock sign-in response so an email is returned only for valid credentials and made the unavailable HTTP adapter reject predictably.
+
+## Phase 2 backend foundation completed
+
+- Added a Python 3.10+ FastAPI application factory and exported application instance under `server/app`.
+- Added the versioned `/api/v1` router, root service metadata, health, readiness, and capability endpoints.
+- Added localhost CORS, request IDs, process-time headers, standard request logging, safe structured errors, Pydantic Settings, and optional local `.env` loading.
+- Readiness reports the API as ready while database, storage, and AI remain `not_configured`.
+- Capabilities report document processing and legal research as unavailable, multi-agent execution and citation verification as frontend simulations only, and automatic court filing as prohibited.
+- Added exact runtime and development dependency pins, a repository-local `server/.venv`, focused endpoint tests, Ruff configuration, an environment example, and PowerShell start/test helpers.
+- The frontend remains in deterministic `mock` mode; its unavailable HTTP adapter was not activated or changed.
 
 ## Routes and surfaces inspected
 
@@ -68,25 +78,32 @@ Also inspected the root loading, error, and not-found boundaries; authentication
 - Only the preloaded synthetic matter contains the closed timeline, contradiction, procedural, research, strategy, ethics, citation, and motion fixtures.
 - Browser-local state is neither secure nor authoritative.
 - Browser print/Save as PDF is the only export mechanism and never files anything with a court.
-- There is no OCR, real legal research, verified legal corpus, production authentication, backend, database, cloud storage, server-side PDF generation, or automatic filing.
+- The FastAPI service is a foundation only. There is no production authentication, database, Supabase, cloud storage, OCR, document processing, AI/model integration, RAG, real legal research, verified legal corpus, backend multi-agent execution, citation verification, streaming, server-side PDF generation, or automatic filing.
 
 ## Verification
 
-Manual verification pending.
-
-By user request, this continuation did not run `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm check`, the development server, browser automation, or localhost testing. Earlier documentation claims about completed final verification were not treated as current evidence.
+- Frontend preflight: `pnpm typecheck` passed (`tsc --noEmit`) on the first run.
+- Backend lint: `server/.venv/Scripts/python.exe -m ruff check --no-cache app tests` passed with `All checks passed!` after correcting the initial findings.
+- Focused backend tests: `server/.venv/Scripts/python.exe -m pytest tests` passed with 11 tests in 0.65 seconds.
+- The test run emitted one dependency deprecation warning from FastAPI's compatibility `TestClient`; the pinned dependency set was retained.
+- Pytest's cache provider is disabled in backend test configuration because cache-directory creation blocked during session teardown in the managed workspace.
+- By user request, this Phase 2 work did not run frontend lint, build, check, development server, browser automation, or localhost testing.
+- No frontend or backend development server was started.
 
 ## Package and installation status
 
 - `package.json`, `client/package.json`, and `pnpm-lock.yaml` were not changed.
-- No dependencies were added or upgraded.
-- The user does not need to run `pnpm install` for these continuation changes.
+- No frontend dependency was added or upgraded, and `pnpm install` was not run.
+- Created `server/.venv` with Python 3.12.10 and installed only the exact backend pins from `server/requirements-dev.txt`.
+- Runtime pins: FastAPI 0.140.13, Uvicorn 0.52.0, and pydantic-settings 2.14.2.
+- Development pins: HTTPX 0.28.1, pytest 9.1.1, and Ruff 0.16.0.
+- No package was installed globally, and no local `.env` containing credentials was created.
 
 ## Git and phase boundary
 
-- The handoff working tree contains unstaged frontend and current-state documentation changes from this continuation.
+- The handoff working tree contains unstaged Phase 2 backend and documentation changes; no frontend file is modified in the current Git status.
 - No files were staged.
 - No commit or push was performed.
 - No branch, remote, or Git history change was performed.
-- No backend was implemented or started.
-- The next phase was not started; `server/` remains documentation-only.
+- The authorised Phase 2 FastAPI foundation is complete and was not started as a live server.
+- Phase 3 was not started.

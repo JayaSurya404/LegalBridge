@@ -12,3 +12,9 @@ Thumbs.db
 coverage/
 client/next-env.d.ts
 client/tsconfig.tsbuildinfo
+server/.venv/
+server/.env
+server/.pytest_cache/
+server/.ruff_cache/
+**/__pycache__/
+*.py[cod]
