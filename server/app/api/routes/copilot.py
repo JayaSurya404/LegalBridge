@@ -163,6 +163,7 @@ async def create_message(
         source_references_json=references,
     )
     session.add(assistant_message)
+    await session.flush()
     add_audit_event(
         session,
         organization_id=principal.organization.id,

@@ -406,7 +406,7 @@ async def review_motion(
         case_id=case_id,
         motion_id=motion_id,
     )
-    if payload.pin != settings.review_pin:
+    if payload.review_pin != settings.review_pin:
         raise ApplicationError(
             status_code=403,
             code="invalid_review_pin",
@@ -424,6 +424,7 @@ async def review_motion(
     )
     session.add(review)
     motion.status = payload.decision
+    await session.flush()
     add_audit_event(
         session,
         organization_id=principal.organization.id,
@@ -492,7 +493,19 @@ async def _export(
         motion_id=motion_id,
     )
     version = await _latest_version(session, motion.id)
-    if motion.status != "approved":
+    approved_review_id = await session.scalar(
+        select(AttorneyReview.id)
+        .where(
+            AttorneyReview.motion_draft_id == motion.id,
+            AttorneyReview.organization_id == principal.organization.id,
+            AttorneyReview.case_id == case_id,
+            AttorneyReview.decision == "approved",
+            AttorneyReview.review_pin_verified.is_(True),
+        )
+        .order_by(AttorneyReview.reviewed_at.desc())
+        .limit(1)
+    )
+    if motion.status not in {"approved", "exported"} or approved_review_id is None:
         raise ApplicationError(
             status_code=409,
             code="internal_approval_required",
