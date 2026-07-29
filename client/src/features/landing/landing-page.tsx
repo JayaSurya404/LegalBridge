@@ -58,7 +58,7 @@ export function LandingPage() {
                   Source-linked legal assistance, built to stop before filing.
                 </h1>
                 <p className="mt-6 max-w-2xl text-lg leading-8 text-[var(--slate)]">
-                  LegalBridge India is a frontend-only hackathon demonstration for legal-aid lawyers. It organises fictional case material into reviewable timelines, potential procedural concerns, synthetic research, and a motion draft—then holds the line for attorney judgment.
+                  LegalBridge India is a full-stack hackathon demonstration for legal-aid lawyers. FastAPI provides authenticated case, document-metadata, and audit persistence while the closed synthetic frontend walkthrough demonstrates reviewable legal-assistance safeguards.
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Link href="/sign-in" className={buttonVariants({ size: "lg" })}>
@@ -156,7 +156,7 @@ export function LandingPage() {
                 <Gavel className="size-7 text-[var(--saffron-dark)]" aria-hidden="true" />
                 <h2 className="mt-4 font-serif text-3xl font-semibold text-[var(--navy)]">Clear about what this is—and is not</h2>
                 <p className="mt-4 leading-7 text-[var(--slate)]">
-                  This checkpoint demonstrates frontend interaction and safety gates. It performs no OCR, legal research, authentication, document storage, backend processing, or court filing.
+                  This checkpoint includes real API authentication and metadata persistence. It performs no binary document storage, OCR, legal research, backend agent execution, citation verification, or court filing.
                 </p>
               </div>
               <PrototypeDisclaimer />

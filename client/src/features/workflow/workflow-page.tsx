@@ -17,7 +17,7 @@ import { UnknownCase } from "@/components/shared/unknown-case";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { DEMO_CASE_ID } from "@/lib/demo/seed";
+import { BACKEND_DEMO_CASE_NUMBER } from "@/lib/api/mappers";
 import { useCaseRecord } from "@/lib/hooks/use-case-record";
 import type { WorkflowNode } from "@/lib/types/domain";
 import { cn } from "@/lib/utils";
@@ -47,7 +47,8 @@ export function WorkflowPage() {
   const documentsReady =
     record.documents.length > 0 &&
     record.documents.every((document) => document.status === "processed");
-  const isClosedDemoCase = record.id === DEMO_CASE_ID;
+  const isClosedDemoCase =
+    record.reference === BACKEND_DEMO_CASE_NUMBER;
   const completed = workflow.nodes.filter((node) => node.status === "completed").length;
   const progress = Math.round((completed / workflow.nodes.length) * 100);
 
@@ -87,14 +88,14 @@ export function WorkflowPage() {
       {!isClosedDemoCase && (
         <Card className="mb-6 border-blue-200 bg-blue-50">
           <CardContent className="p-5 text-sm leading-6 text-blue-950">
-            This browser-created case can exercise the fixed agent order, controls, timing, persistence, and audit trail. It will not produce case-specific facts, findings, authorities, or a motion because this frontend does not read file contents. Use the preloaded synthetic matter for the closed analysis walkthrough.
+            This backend case can exercise the fixed frontend agent order, controls, timing, and locally retained workflow state. It will not produce case-specific facts, findings, authorities, or a motion because no parser or backend agent execution exists. Use the designated synthetic matter for the closed analysis walkthrough.
           </CardContent>
         </Card>
       )}
       {workflow.status === "idle" && !documentsReady && (
         <Card className="mb-6 border-amber-200 bg-amber-50">
           <CardContent className="p-5 text-sm leading-6 text-amber-950">
-            Workflow start is locked until this case has at least one document metadata record and all selected records have completed simulated processing.
+            Workflow start is locked until this case has at least one metadata or closed fixture source record. Registering metadata does not parse or analyse the document.
           </CardContent>
         </Card>
       )}
@@ -167,7 +168,7 @@ export function WorkflowPage() {
                   {inspected.sourceRefs.length > 0 ? (
                     <div className="flex flex-wrap gap-2">{inspected.sourceRefs.map((source) => <SourceChip key={source}>{source}</SourceChip>)}</div>
                   ) : (
-                    <span>No source references are generated for browser-created cases.</span>
+                    <span>No source references are generated for newly persisted backend cases.</span>
                   )}
                 </Detail>
               </div>

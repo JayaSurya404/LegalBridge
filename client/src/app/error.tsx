@@ -17,7 +17,7 @@ export default function GlobalError({
         <p className="mt-4 text-xs font-bold uppercase tracking-wider text-red-700">Runtime error</p>
         <h1 className="mt-2 font-serif text-2xl font-semibold text-[var(--navy)]">The workspace could not render this view</h1>
         <p className="mt-3 text-sm leading-6 text-[var(--slate)]">
-          Your browser-local demo data remains available. Try this view again; if the issue persists, return to the dashboard.
+          Your saved backend records and local synthetic analysis state are not changed by this rendering error. Try this view again; if the issue persists, return to the dashboard.
         </p>
         <p className="mt-3 break-words rounded-lg bg-red-50 p-3 text-xs text-red-800">{error.message}</p>
         <div className="mt-5 flex flex-wrap gap-3">

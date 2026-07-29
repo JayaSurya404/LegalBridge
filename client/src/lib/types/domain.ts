@@ -1,4 +1,4 @@
-export type CaseStatus = "active" | "draft" | "archived";
+export type CaseStatus = "active" | "draft" | "review" | "closed" | "archived";
 export type WorkflowStatus = "idle" | "running" | "paused" | "completed";
 export type NodeStatus = "locked" | "queued" | "running" | "completed";
 export type ReviewStatus = "pending" | "approved" | "revision" | "rejected";
@@ -14,6 +14,9 @@ export interface DocumentMeta {
   status: "selected" | "processing" | "processed";
   addedAt: string;
   sourceLabel: string;
+  category?: string;
+  sha256?: string;
+  origin?: "backend" | "synthetic_fixture" | "browser_local";
 }
 
 export interface WorkflowNode {
@@ -151,6 +154,16 @@ export interface AuditEvent {
   actor: string;
   relatedEntity: string;
   metadata: string;
+  source?: "backend" | "synthetic_fixture" | "browser_local";
+}
+
+export interface AuthenticatedUser {
+  id: string;
+  organizationId: string;
+  email: string;
+  fullName: string;
+  role: "admin" | "attorney" | "reviewer";
+  isActive: boolean;
 }
 
 export interface CaseRecord {
@@ -158,6 +171,7 @@ export interface CaseRecord {
   title: string;
   reference: string;
   allegation: string;
+  allegationType?: string;
   court: string;
   jurisdiction: string;
   clientName: string;
@@ -178,6 +192,8 @@ export interface CaseRecord {
   motionVersions: MotionVersion[];
   currentMotion: string;
   approval: Approval | null;
+  assignedAttorneyId?: string | null;
+  backendPersisted?: boolean;
 }
 
 export interface DemoSettings {
@@ -192,6 +208,7 @@ export interface NewCaseInput {
   clientName: string;
   advocateName: string;
   allegation: string;
+  allegationType: string;
   court: string;
   jurisdiction: string;
 }

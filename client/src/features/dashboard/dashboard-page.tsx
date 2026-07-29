@@ -16,7 +16,7 @@ import { PrototypeDisclaimer } from "@/components/shared/disclaimer";
 import { StatusBadge } from "@/components/shared/status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
-import { DEMO_CASE_ID } from "@/lib/demo/seed";
+import { BACKEND_DEMO_CASE_NUMBER } from "@/lib/api/mappers";
 import { getMotionGateStatus } from "@/lib/motion-gate";
 import { useAppStore } from "@/stores/app-store";
 import { format } from "date-fns";
@@ -24,14 +24,17 @@ import { format } from "date-fns";
 export function DashboardPage() {
   const cases = useAppStore((state) => state.cases);
   const auditEvents = useAppStore((state) => state.auditEvents);
-  const demo = cases.find((record) => record.id === DEMO_CASE_ID) ?? cases[0];
+  const demo =
+    cases.find((record) => record.reference === BACKEND_DEMO_CASE_NUMBER) ??
+    cases[0];
   const completed = demo?.workflow.nodes.filter((node) => node.status === "completed").length ?? 0;
   const citations = demo?.citations.length ?? 0;
   const ethicsRejections = demo?.ethicsArguments.filter((argument) => argument.status === "rejected").length ?? 0;
   const gate = demo ? getMotionGateStatus(demo) : null;
   const verified = gate?.metrics.citationRecordsVerified ?? 0;
+  const factCount = demo?.timeline.length ? 24 : 0;
   const chartData = [
-    { name: "Facts", value: demo ? 24 : 0 },
+    { name: "Facts", value: factCount },
     { name: "Timeline", value: demo?.timeline.length ?? 0 },
     { name: "Conflicts", value: demo?.contradictions.length ?? 0 },
     { name: "Concerns", value: demo?.findings.length ?? 0 },
@@ -41,19 +44,19 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Frontend demonstration workspace"
+        eyebrow="Persistent development workspace"
         title="Good afternoon, counsel."
-        description="Review the synthetic case, run the deterministic workflow, and test the attorney-controlled export gate."
+        description="Manage persisted cases and metadata while keeping legal analysis inside the closed synthetic demonstration boundary."
         actions={
           <Link href="/cases/new" className={buttonVariants()}>
-            New synthetic case
+            New case
           </Link>
         }
         synthetic
       />
       <PrototypeDisclaimer className="mb-6" compact />
       <section aria-label="Workspace metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Active cases" value={cases.filter((record) => record.status === "active").length} note={`${cases.length} browser-local total`} icon={BriefcaseBusiness} />
+        <MetricCard label="Active cases" value={cases.filter((record) => record.status === "active").length} note={`${cases.length} backend total`} icon={BriefcaseBusiness} />
         <MetricCard label="Workflow progress" value={`${completed}/15`} note={demo?.workflow.status ?? "No case"} icon={Activity} />
         <MetricCard label="Citations verified" value={`${verified}/${citations}`} note="Synthetic closed records" icon={ShieldCheck} />
         <MetricCard
@@ -92,7 +95,7 @@ export function DashboardPage() {
               </ResponsiveContainer>
             </div>
             <p className="mt-3 text-xs leading-5 text-[var(--slate)]">
-              Text summary: 24 extracted demonstration facts, {demo?.timeline.length ?? 0} timeline events, {demo?.contradictions.length ?? 0} contradictions, {demo?.findings.length ?? 0} potential concerns, and {demo?.authorities.length ?? 0} closed synthetic authorities.
+              Text summary: {factCount} extracted demonstration facts, {demo?.timeline.length ?? 0} timeline events, {demo?.contradictions.length ?? 0} contradictions, {demo?.findings.length ?? 0} potential concerns, and {demo?.authorities.length ?? 0} closed synthetic authorities. Empty backend cases never inherit these fixtures.
             </p>
           </CardContent>
         </Card>
@@ -125,7 +128,7 @@ export function DashboardPage() {
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Recent local audit activity</CardTitle>
+          <CardTitle>Recent audit activity</CardTitle>
         </CardHeader>
         <CardContent className="divide-y divide-[var(--border)]">
           {auditEvents.slice(0, 5).map((event) => (

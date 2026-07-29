@@ -13,14 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { BackendApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app-store";
 
 const schema = z.object({
   title: z.string().trim().min(4, "Enter a case title of at least 4 characters.").max(100),
-  reference: z.string().trim().min(4, "Enter a fictional reference.").max(60),
-  clientName: z.string().trim().min(3, "Enter a synthetic client name.").max(80),
-  advocateName: z.string().trim().min(3, "Enter a synthetic advocate name.").max(80),
+  reference: z.string().trim().min(4, "Enter a unique synthetic case number.").max(60),
+  allegationType: z.string().trim().min(3, "Enter a synthetic allegation type.").max(100),
   allegation: z.string().trim().min(20, "Provide at least 20 characters of synthetic context.").max(600),
   court: z.string().trim().min(4, "Enter a synthetic review forum.").max(100),
   jurisdiction: z.string().trim().min(4, "Enter a demonstration jurisdiction.").max(100),
@@ -31,30 +31,33 @@ type FieldName = keyof Values;
 
 const steps: { title: string; description: string; fields: FieldName[] }[] = [
   { title: "Case identity", description: "Use fictional identifiers only.", fields: ["title", "reference"] },
-  { title: "Parties and representation", description: "Create synthetic names for the demo.", fields: ["clientName", "advocateName"] },
+  { title: "Allegation classification", description: "Classify the fictional allegation without personal data.", fields: ["allegationType"] },
   { title: "Allegation summary", description: "Describe fictional case context carefully.", fields: ["allegation"] },
   { title: "Jurisdiction and context", description: "Use a closed demonstration forum.", fields: ["court", "jurisdiction"] },
   { title: "Document preparation", description: "Files are added after case creation.", fields: [] },
-  { title: "Review and create", description: "Confirm the browser-local case record.", fields: [] },
+  { title: "Review and create", description: "Confirm the persistent backend case record.", fields: [] },
 ];
 
 export function NewCaseWizard() {
   const router = useRouter();
-  const createCase = useAppStore((state) => state.createCase);
+  const createPersistentCase = useAppStore(
+    (state) => state.createPersistentCase,
+  );
+  const currentUser = useAppStore((state) => state.currentUser);
   const [step, setStep] = useState(0);
   const {
     register,
     handleSubmit,
     trigger,
     getValues,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
       title: "",
       reference: "",
-      clientName: "",
-      advocateName: "",
+      allegationType: "",
       allegation: "",
       court: "Synthetic District Review Forum",
       jurisdiction: "Closed demonstration jurisdiction",
@@ -67,18 +70,36 @@ export function NewCaseWizard() {
     if (valid) setStep((current) => Math.min(current + 1, steps.length - 1));
   };
 
-  const submit = (data: Values) => {
-    const caseId = createCase(data);
-    toast.success("Synthetic case created in this browser.");
-    router.push(`/cases/${caseId}`);
+  const submit = async (data: Values) => {
+    try {
+      const caseId = await createPersistentCase({
+        ...data,
+        clientName: "Not collected during hackathon development",
+        advocateName:
+          currentUser?.fullName ?? "Authenticated LegalBridge user",
+      });
+      toast.success("Case persisted to the LegalBridge backend.");
+      router.push(`/cases/${caseId}`);
+    } catch (error) {
+      const message =
+        error instanceof BackendApiError
+          ? `${error.message}${error.requestId ? ` Request ID: ${error.requestId}.` : ""}`
+          : "The case could not be created. Confirm the backend is available.";
+      if (error instanceof BackendApiError && error.status === 409) {
+        setError("reference", { message });
+        setStep(0);
+      } else {
+        setError("root", { message });
+      }
+    }
   };
 
   return (
     <>
       <PageHeader
-        eyebrow="Browser-local case creation"
-        title="Create a synthetic case"
-        description="Build a fictional demonstration matter without entering personal, confidential, or real client information."
+        eyebrow="Persistent case creation"
+        title="Create a synthetic-safe case"
+        description="Persist a case record to FastAPI without entering personal, confidential, or real client information."
       />
       <PrototypeDisclaimer className="mb-6" compact />
       <div className="grid gap-6 lg:grid-cols-[17rem_1fr]">
@@ -128,14 +149,9 @@ export function NewCaseWizard() {
                 </div>
               )}
               {step === 1 && (
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <Field label="Synthetic client name" id="clientName" error={errors.clientName?.message}>
-                    <Input id="clientName" aria-invalid={Boolean(errors.clientName)} aria-describedby={errors.clientName ? "clientName-error" : undefined} placeholder="Client name (synthetic)" {...register("clientName")} />
-                  </Field>
-                  <Field label="Synthetic advocate name" id="advocateName" error={errors.advocateName?.message}>
-                    <Input id="advocateName" aria-invalid={Boolean(errors.advocateName)} aria-describedby={errors.advocateName ? "advocateName-error" : undefined} placeholder="Advocate name (synthetic)" {...register("advocateName")} />
-                  </Field>
-                </div>
+                <Field label="Synthetic allegation type" id="allegationType" error={errors.allegationType?.message}>
+                  <Input id="allegationType" aria-invalid={Boolean(errors.allegationType)} aria-describedby={errors.allegationType ? "allegationType-error" : undefined} placeholder="e.g. Property allegation demonstration" {...register("allegationType")} />
+                </Field>
               )}
               {step === 2 && (
                 <Field label="Fictional allegation summary" id="allegation" error={errors.allegation?.message}>
@@ -157,7 +173,7 @@ export function NewCaseWizard() {
                   <FileLock2 className="size-8" aria-hidden="true" />
                   <h3 className="mt-4 font-serif text-xl font-semibold">Document metadata comes next</h3>
                   <p className="mt-2 text-sm leading-6">
-                    After creating the case, open Documents to select PDF, TXT, or DOCX files. No file is sent to a server, and binary content is never saved to localStorage.
+                    After creating the case, open Documents to select PDF, TXT, or DOCX files. Only validated metadata and a browser-calculated SHA-256 are sent; binary contents are discarded.
                   </p>
                 </div>
               )}
@@ -165,9 +181,8 @@ export function NewCaseWizard() {
                 <dl className="grid gap-4 rounded-2xl border border-[var(--border)] bg-[var(--cream)] p-5 text-sm sm:grid-cols-2">
                   {[
                     ["Case title", values.title],
-                    ["Reference", values.reference],
-                    ["Synthetic client", values.clientName],
-                    ["Synthetic advocate", values.advocateName],
+                    ["Case number", values.reference],
+                    ["Allegation type", values.allegationType],
                     ["Forum", values.court],
                     ["Jurisdiction", values.jurisdiction],
                   ].map(([label, value]) => (
@@ -182,6 +197,14 @@ export function NewCaseWizard() {
                   </div>
                 </dl>
               )}
+              {errors.root && (
+                <div
+                  role="alert"
+                  className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900"
+                >
+                  {errors.root.message}
+                </div>
+              )}
 
               <div className="mt-8 flex flex-col-reverse gap-3 border-t border-[var(--border)] pt-5 sm:flex-row sm:justify-between">
                 <Button type="button" variant="secondary" onClick={() => step === 0 ? router.push("/cases") : setStep((current) => current - 1)}>
@@ -193,7 +216,7 @@ export function NewCaseWizard() {
                   </Button>
                 ) : (
                   <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Creating case…" : "Create browser-local case"}
+                    {isSubmitting ? "Persisting case…" : "Create persistent case"}
                   </Button>
                 )}
               </div>

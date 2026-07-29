@@ -46,7 +46,7 @@ export function CitationFirewall({ record, compact = false }: { record: CaseReco
         <CardContent className="divide-y divide-[var(--border)] p-0">
           {citations.length === 0 ? (
             <div className="p-5 text-sm leading-6 text-[var(--slate)]">
-              No citation records exist for this browser-local case. Export remains blocked.
+              No citation records exist for this backend case. Export remains blocked.
             </div>
           ) : citations.map((citation) => {
             const citationPass =

@@ -19,12 +19,13 @@ import { StatusBadge } from "@/components/shared/status";
 import { UnknownCase } from "@/components/shared/unknown-case";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
-import { DEMO_CASE_ID } from "@/lib/demo/seed";
+import { BACKEND_DEMO_CASE_NUMBER } from "@/lib/api/mappers";
 import { useCaseRecord } from "@/lib/hooks/use-case-record";
 import { getMotionGateStatus } from "@/lib/motion-gate";
+import { useAppStore } from "@/stores/app-store";
 
 const moduleLinks = [
-  ["Documents", "Review browser-local metadata", "/documents", FileStack],
+  ["Documents", "Review persisted metadata", "/documents", FileStack],
   ["Workflow", "Run the 15-agent simulation", "/workflow", Activity],
   ["Timeline", "Inspect source-linked events", "/timeline", ScrollText],
   ["Contradictions", "Compare material statements", "/contradictions", GitCompareArrows],
@@ -36,6 +37,12 @@ const moduleLinks = [
 
 export function CaseOverviewPage() {
   const { caseId, record } = useCaseRecord();
+  const demoCaseId = useAppStore(
+    (state) =>
+      state.cases.find(
+        (item) => item.reference === BACKEND_DEMO_CASE_NUMBER,
+      )?.id,
+  );
   if (!record) return <UnknownCase />;
   const completed = record.workflow.nodes.filter((node) => node.status === "completed").length;
   const rejectionApplied = record.ethicsArguments.some((argument) => argument.requiredRejection && argument.status === "rejected");
@@ -45,7 +52,10 @@ export function CaseOverviewPage() {
     record.workflow.status !== "completed"
       ? { label: "Run deterministic workflow", href: `/cases/${caseId}/workflow` }
       : record.ethicsArguments.length === 0
-        ? { label: "Open the preloaded analysis demo", href: `/cases/${DEMO_CASE_ID}` }
+        ? {
+            label: "Open the preloaded analysis demo",
+            href: demoCaseId ? `/cases/${demoCaseId}` : "/cases",
+          }
       : !rejectionApplied
         ? { label: "Complete required ethics rejection", href: `/cases/${caseId}/ethics` }
         : !gate.exportUnlocked

@@ -1,159 +1,384 @@
 import type {
-  AddDocumentsRequest,
-  ApiEnvelope,
-  ApprovalResponse,
-  CreateCaseRequest,
-  LegalBridgeClient,
-  ObservabilityResponse,
-  SignInRequest,
-  SignInResponse,
-  WorkflowCommandRequest,
-} from "@/lib/api/contracts";
-import { DEMO_CASE_ID, seedAuditEvents, seedCase } from "@/lib/demo/seed";
+  BackendAuditEvent,
+  BackendCase,
+  BackendCaseCreate,
+  BackendDocumentMetadata,
+  BackendDocumentMetadataCreate,
+  BackendErrorResponse,
+  BackendLoginRequest,
+  BackendTokenResponse,
+  BackendUser,
+} from "@/lib/api/backend-types";
+import type { LegalBridgeClient } from "@/lib/api/contracts";
+import { DEMO_CASE_ID, seedCase } from "@/lib/demo/seed";
 import { publicEnv } from "@/lib/env/public-env";
-import type {
-  AuditEvent,
-  CaseRecord,
-  DocumentMeta,
-  WorkflowRun,
-} from "@/lib/types/domain";
+import {
+  clearBackendSession,
+  readBackendSession,
+  sessionFromTokenResponse,
+  writeBackendSession,
+} from "@/lib/auth/session-storage";
 
-export class LegalBridgeClientError extends Error {
+type ErrorKind =
+  | "NETWORK_UNAVAILABLE"
+  | "UNAUTHORIZED"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "VALIDATION"
+  | "SERVER_ERROR"
+  | "INVALID_CONFIGURATION";
+
+export class BackendApiError extends Error {
   constructor(
     message: string,
-    readonly code: "NOT_FOUND" | "UNAVAILABLE" | "INVALID_CONFIGURATION",
+    readonly kind: ErrorKind,
+    readonly status: number,
+    readonly code: string,
+    readonly requestId: string | null = null,
+    readonly details: string[] = [],
   ) {
     super(message);
-    this.name = "LegalBridgeClientError";
+    this.name = "BackendApiError";
   }
 }
 
-function envelope<T>(data: T): ApiEnvelope<T> {
-  return { data, mode: "mock", generatedAt: "2026-01-20T12:00:00.000Z" };
+function kindForStatus(status: number): ErrorKind {
+  if (status === 401) return "UNAUTHORIZED";
+  if (status === 403) return "FORBIDDEN";
+  if (status === 404) return "NOT_FOUND";
+  if (status === 409) return "CONFLICT";
+  if (status === 422) return "VALIDATION";
+  return "SERVER_ERROR";
 }
 
-export class MockLegalBridgeClient implements LegalBridgeClient {
-  async signIn(request: SignInRequest): Promise<ApiEnvelope<SignInResponse>> {
-    const authenticated =
-      request.email.trim().toLowerCase() === "attorney@legalbridge.demo" &&
-      request.password === "LegalBridge@2026";
-    return envelope({
-      authenticated,
-      userEmail: authenticated ? "attorney@legalbridge.demo" : undefined,
-    });
+async function parseBackendError(response: Response): Promise<BackendApiError> {
+  let payload: BackendErrorResponse | null = null;
+  try {
+    payload = (await response.json()) as BackendErrorResponse;
+  } catch {
+    payload = null;
   }
-
-  async listCases(): Promise<ApiEnvelope<CaseRecord[]>> {
-    return envelope([seedCase]);
-  }
-
-  async getCase(caseId: string): Promise<ApiEnvelope<CaseRecord>> {
-    if (caseId !== DEMO_CASE_ID) {
-      throw new LegalBridgeClientError("Demonstration case not found.", "NOT_FOUND");
-    }
-    return envelope(seedCase);
-  }
-
-  async createCase(request: CreateCaseRequest): Promise<ApiEnvelope<CaseRecord>> {
-    return envelope({ ...seedCase, ...request.case, id: "case-local-contract-preview" });
-  }
-
-  async addDocuments(
-    request: AddDocumentsRequest,
-  ): Promise<ApiEnvelope<DocumentMeta[]>> {
-    return envelope(request.documents);
-  }
-
-  async commandWorkflow(
-    request: WorkflowCommandRequest,
-  ): Promise<ApiEnvelope<WorkflowRun>> {
-    if (request.caseId !== DEMO_CASE_ID) {
-      throw new LegalBridgeClientError("Workflow case not found.", "NOT_FOUND");
-    }
-    return envelope(seedCase.workflow);
-  }
-
-  async approveMotion(): Promise<ApiEnvelope<ApprovalResponse>> {
-    throw new LegalBridgeClientError(
-      "Approval mutations are handled by the local demonstration store.",
-      "UNAVAILABLE",
-    );
-  }
-
-  async listAuditEvents(caseId: string): Promise<ApiEnvelope<AuditEvent[]>> {
-    return envelope(seedAuditEvents.filter((event) => event.caseId === caseId));
-  }
-
-  async getObservability(
-    caseId: string,
-  ): Promise<ApiEnvelope<ObservabilityResponse>> {
-    return envelope({
-      caseId,
-      workflow: seedCase.workflow,
-      facts: 24,
-      timelineEvents: seedCase.timeline.length,
-      contradictions: seedCase.contradictions.length,
-      potentialConcerns: seedCase.findings.length,
-      authorities: seedCase.authorities.length,
-      citationVerificationPercent: 100,
-      simulatedInputTokens: 18420,
-      simulatedOutputTokens: 6370,
-      simulatedCostInr: 0,
-    });
-  }
+  const requestId =
+    response.headers.get("X-Request-ID") ?? payload?.error.request_id ?? null;
+  return new BackendApiError(
+    payload?.error.message ?? `Backend request failed with ${response.status}.`,
+    kindForStatus(response.status),
+    response.status,
+    payload?.error.code ?? "unknown_backend_error",
+    requestId,
+    payload?.error.details?.map(
+      (detail) => `${detail.location}: ${detail.message}`,
+    ) ?? [],
+  );
 }
+
+let refreshPromise: Promise<BackendTokenResponse> | null = null;
 
 export class HttpLegalBridgeClient implements LegalBridgeClient {
-  private unavailable() {
-    return new LegalBridgeClientError(
-      "Backend not available in this frontend checkpoint.",
-      "UNAVAILABLE",
+  readonly mode = "http" as const;
+  private readonly baseUrl: string;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl.replace(/\/+$/, "");
+  }
+
+  private async raw<T>(path: string, init?: RequestInit): Promise<T> {
+    let response: Response;
+    const headers = new Headers(init?.headers);
+    headers.set("Accept", "application/json");
+    if (init?.body) headers.set("Content-Type", "application/json");
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, {
+        ...init,
+        headers,
+      });
+    } catch {
+      throw new BackendApiError(
+        "The LegalBridge backend is unavailable. Confirm the API is running and retry.",
+        "NETWORK_UNAVAILABLE",
+        0,
+        "network_unavailable",
+      );
+    }
+    if (!response.ok) throw await parseBackendError(response);
+    if (response.status === 204) return undefined as T;
+    return (await response.json()) as T;
+  }
+
+  private async rotateRefreshToken(): Promise<BackendTokenResponse> {
+    if (refreshPromise) return refreshPromise;
+    const session = readBackendSession();
+    if (!session) {
+      throw new BackendApiError(
+        "The session has expired. Sign in again.",
+        "UNAUTHORIZED",
+        401,
+        "missing_session",
+      );
+    }
+    refreshPromise = this.raw<BackendTokenResponse>("/api/v1/auth/refresh", {
+      method: "POST",
+      body: JSON.stringify({ refresh_token: session.refreshToken }),
+    })
+      .then((response) => {
+        writeBackendSession(sessionFromTokenResponse(response));
+        return response;
+      })
+      .catch((error: unknown) => {
+        clearBackendSession();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("legalbridge:session-cleared"));
+        }
+        throw error;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+    return refreshPromise;
+  }
+
+  private async authenticated<T>(
+    path: string,
+    init?: RequestInit,
+    retry = true,
+  ): Promise<T> {
+    let session = readBackendSession();
+    if (!session) {
+      throw new BackendApiError(
+        "Authentication is required.",
+        "UNAUTHORIZED",
+        401,
+        "missing_session",
+      );
+    }
+    if (retry && session.accessTokenExpiresAt <= Date.now()) {
+      await this.rotateRefreshToken();
+      session = readBackendSession();
+      if (!session) {
+        throw new BackendApiError(
+          "The session has expired. Sign in again.",
+          "UNAUTHORIZED",
+          401,
+          "missing_session",
+        );
+      }
+    }
+    const headers = new Headers(init?.headers);
+    headers.set("Authorization", `Bearer ${session.accessToken}`);
+    try {
+      return await this.raw<T>(path, {
+        ...init,
+        headers,
+      });
+    } catch (error) {
+      if (
+        retry &&
+        error instanceof BackendApiError &&
+        error.status === 401
+      ) {
+        await this.rotateRefreshToken();
+        return this.authenticated<T>(path, init, false);
+      }
+      throw error;
+    }
+  }
+
+  async login(request: BackendLoginRequest): Promise<BackendTokenResponse> {
+    const response = await this.raw<BackendTokenResponse>("/api/v1/auth/login", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+    writeBackendSession(sessionFromTokenResponse(response));
+    return response;
+  }
+
+  async restoreSession(): Promise<BackendUser | null> {
+    if (!readBackendSession()) return null;
+    const user = await this.authenticated<BackendUser>("/api/v1/auth/me");
+    const session = readBackendSession();
+    if (session) writeBackendSession({ ...session, user });
+    return user;
+  }
+
+  async logout(): Promise<void> {
+    const session = readBackendSession();
+    try {
+      if (session) {
+        await this.raw<void>("/api/v1/auth/logout", {
+          method: "POST",
+          body: JSON.stringify({ refresh_token: session.refreshToken }),
+        });
+      }
+    } finally {
+      clearBackendSession();
+    }
+  }
+
+  listCases(): Promise<BackendCase[]> {
+    return this.authenticated("/api/v1/cases");
+  }
+
+  getCase(caseId: string): Promise<BackendCase> {
+    return this.authenticated(`/api/v1/cases/${encodeURIComponent(caseId)}`);
+  }
+
+  createCase(request: BackendCaseCreate): Promise<BackendCase> {
+    return this.authenticated("/api/v1/cases", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  listDocuments(caseId: string): Promise<BackendDocumentMetadata[]> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/documents`,
     );
   }
 
-  signIn(): Promise<ApiEnvelope<SignInResponse>> {
-    return Promise.reject(this.unavailable());
+  createDocumentMetadata(
+    caseId: string,
+    request: BackendDocumentMetadataCreate,
+  ): Promise<BackendDocumentMetadata> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/documents`,
+      { method: "POST", body: JSON.stringify(request) },
+    );
   }
-  listCases(): Promise<ApiEnvelope<CaseRecord[]>> {
-    return Promise.reject(this.unavailable());
+
+  deleteDocumentMetadata(caseId: string, documentId: string): Promise<void> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/documents/${encodeURIComponent(documentId)}`,
+      { method: "DELETE" },
+    );
   }
-  getCase(): Promise<ApiEnvelope<CaseRecord>> {
-    return Promise.reject(this.unavailable());
+
+  listAuditEvents(caseId: string): Promise<BackendAuditEvent[]> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/audit-events`,
+    );
   }
-  createCase(): Promise<ApiEnvelope<CaseRecord>> {
-    return Promise.reject(this.unavailable());
+}
+
+const mockUser: BackendUser = {
+  id: "mock-attorney",
+  organization_id: "mock-organization",
+  email: "attorney@legalbridge.demo",
+  full_name: "Demo Attorney",
+  role: "attorney",
+  is_active: true,
+  created_at: "2026-01-01T00:00:00.000Z",
+  updated_at: "2026-01-01T00:00:00.000Z",
+};
+
+export class MockLegalBridgeClient implements LegalBridgeClient {
+  readonly mode = "mock" as const;
+
+  async login(request: BackendLoginRequest): Promise<BackendTokenResponse> {
+    if (
+      request.organization_slug !== "legalbridge-demo" ||
+      request.email.trim().toLowerCase() !== mockUser.email ||
+      request.password !== "LegalBridge@2026"
+    ) {
+      throw new BackendApiError(
+        "Invalid organisation, email, or password.",
+        "UNAUTHORIZED",
+        401,
+        "invalid_credentials",
+      );
+    }
+    const response: BackendTokenResponse = {
+      access_token: "mock-access-token",
+      refresh_token: "mock-refresh-token",
+      token_type: "bearer",
+      expires_in: 3600,
+      user: mockUser,
+    };
+    writeBackendSession(sessionFromTokenResponse(response));
+    return response;
   }
-  addDocuments(): Promise<ApiEnvelope<DocumentMeta[]>> {
-    return Promise.reject(this.unavailable());
+
+  async restoreSession(): Promise<BackendUser | null> {
+    return readBackendSession()?.user ?? null;
   }
-  commandWorkflow(): Promise<ApiEnvelope<WorkflowRun>> {
-    return Promise.reject(this.unavailable());
+
+  async logout(): Promise<void> {
+    clearBackendSession();
   }
-  approveMotion(): Promise<ApiEnvelope<ApprovalResponse>> {
-    return Promise.reject(this.unavailable());
+
+  async listCases(): Promise<BackendCase[]> {
+    return [
+      {
+        id: DEMO_CASE_ID,
+        organization_id: mockUser.organization_id,
+        case_number: seedCase.reference,
+        title: seedCase.title,
+        description: seedCase.allegation,
+        court_name: seedCase.court,
+        jurisdiction: seedCase.jurisdiction,
+        allegation_type: "Synthetic property allegation",
+        status: seedCase.status,
+        created_by_id: mockUser.id,
+        assigned_attorney_id: mockUser.id,
+        created_at: seedCase.createdAt,
+        updated_at: seedCase.createdAt,
+      },
+    ];
   }
-  listAuditEvents(): Promise<ApiEnvelope<AuditEvent[]>> {
-    return Promise.reject(this.unavailable());
+
+  getCase(): Promise<BackendCase> {
+    return this.listCases().then((cases) => cases[0]!);
   }
-  getObservability(): Promise<ApiEnvelope<ObservabilityResponse>> {
-    return Promise.reject(this.unavailable());
+
+  createCase(): Promise<BackendCase> {
+    throw new BackendApiError(
+      "Mock case creation remains browser-local.",
+      "SERVER_ERROR",
+      501,
+      "mock_local_only",
+    );
+  }
+
+  async listDocuments(): Promise<BackendDocumentMetadata[]> {
+    return [];
+  }
+
+  createDocumentMetadata(): Promise<BackendDocumentMetadata> {
+    throw new BackendApiError(
+      "Mock document metadata remains browser-local.",
+      "SERVER_ERROR",
+      501,
+      "mock_local_only",
+    );
+  }
+
+  async deleteDocumentMetadata(): Promise<void> {
+    return undefined;
+  }
+
+  async listAuditEvents(): Promise<BackendAuditEvent[]> {
+    return [];
   }
 }
 
 export function createLegalBridgeClient(): LegalBridgeClient {
-  if (!publicEnv.dataMode) {
-    throw new LegalBridgeClientError(
-      publicEnv.configurationError ?? "Invalid frontend configuration.",
-      "INVALID_CONFIGURATION",
-    );
+  if (publicEnv.dataMode === "mock") return new MockLegalBridgeClient();
+  if (publicEnv.dataMode === "http" && publicEnv.apiBaseUrl) {
+    return new HttpLegalBridgeClient(publicEnv.apiBaseUrl);
   }
-  return new MockLegalBridgeClient();
+  throw new BackendApiError(
+    publicEnv.configurationError ?? "Invalid frontend configuration.",
+    "INVALID_CONFIGURATION",
+    0,
+    "invalid_configuration",
+  );
 }
+
+export const legalBridgeClient = createLegalBridgeClient();
 
 export const queryKeys = {
   cases: ["cases"] as const,
   case: (caseId: string) => ["cases", caseId] as const,
+  documents: (caseId: string) => ["cases", caseId, "documents"] as const,
   audit: (caseId: string) => ["cases", caseId, "audit"] as const,
-  observability: (caseId: string) =>
-    ["cases", caseId, "observability"] as const,
 };

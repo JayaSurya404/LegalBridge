@@ -8,9 +8,25 @@ import {
   seedAuditEvents,
   seedCase,
 } from "@/lib/demo/seed";
+import type { BackendDocumentMetadataCreate } from "@/lib/api/backend-types";
+import {
+  BackendApiError,
+  legalBridgeClient,
+} from "@/lib/api/client";
+import {
+  BACKEND_DEMO_CASE_NUMBER,
+  mapBackendCase,
+  mapBackendDocument,
+  mapBackendUser,
+  mapNewCaseRequest,
+  mergeAuditEvents,
+  mergeBackendDocuments,
+} from "@/lib/api/mappers";
+import { publicEnv } from "@/lib/env/public-env";
 import { getMotionGateStatus } from "@/lib/motion-gate";
 import type {
   AuditEvent,
+  AuthenticatedUser,
   CaseRecord,
   DemoSettings,
   DocumentMeta,
@@ -21,15 +37,39 @@ import { makeId, stableHash } from "@/lib/utils";
 
 interface AppState {
   hydrated: boolean;
+  sessionRestored: boolean;
+  sessionRestoring: boolean;
   authenticated: boolean;
   userEmail: string | null;
+  currentUser: AuthenticatedUser | null;
+  workspaceLoading: boolean;
+  workspaceReady: boolean;
+  workspaceError: string | null;
   selectedCaseId: string;
   cases: CaseRecord[];
   auditEvents: AuditEvent[];
   settings: DemoSettings;
   setHydrated: (hydrated: boolean) => void;
-  signIn: (email: string, password: string) => boolean;
-  signOut: () => void;
+  restoreSession: () => Promise<void>;
+  authenticate: (request: {
+    organizationSlug: string;
+    email: string;
+    password: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
+  logout: () => Promise<void>;
+  clearSession: () => void;
+  refreshWorkspace: () => Promise<void>;
+  createPersistentCase: (input: NewCaseInput) => Promise<string>;
+  syncDocuments: (caseId: string) => Promise<void>;
+  registerDocumentMetadata: (
+    caseId: string,
+    document: BackendDocumentMetadataCreate,
+  ) => Promise<DocumentMeta>;
+  deleteDocumentMetadata: (
+    caseId: string,
+    documentId: string,
+  ) => Promise<void>;
+  syncAuditEvents: (caseId: string) => Promise<void>;
   selectCase: (caseId: string) => void;
   createCase: (input: NewCaseInput) => string;
   addDocuments: (
@@ -105,6 +145,16 @@ function freshSeedCase() {
   return structuredClone(seedCase);
 }
 
+function backendErrorMessage(error: unknown): string {
+  if (error instanceof BackendApiError) {
+    const requestReference = error.requestId
+      ? ` Request ID: ${error.requestId}.`
+      : "";
+    return `${error.message}${requestReference}`;
+  }
+  return "The request could not be completed. Retry after checking the backend.";
+}
+
 function getAnalysisCompletionEvent(
   nodeId: string,
   record: CaseRecord,
@@ -164,8 +214,14 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       hydrated: false,
+      sessionRestored: false,
+      sessionRestoring: false,
       authenticated: false,
       userEmail: null,
+      currentUser: null,
+      workspaceLoading: false,
+      workspaceReady: false,
+      workspaceError: null,
       selectedCaseId: DEMO_CASE_ID,
       cases: [freshSeedCase()],
       auditEvents: structuredClone(seedAuditEvents),
@@ -175,44 +231,239 @@ export const useAppStore = create<AppState>()(
         sidebarCollapsed: false,
       },
       setHydrated: (hydrated) => set({ hydrated }),
-      signIn: (email, password) => {
-        const valid =
-          email.trim().toLowerCase() === "attorney@legalbridge.demo" &&
-          password === "LegalBridge@2026";
-        if (!valid) return false;
-        set((state) => ({
-          authenticated: true,
-          userEmail: "attorney@legalbridge.demo",
-          auditEvents: [
-            audit(
-              DEMO_CASE_ID,
-              "authentication.signed_in",
-              "Demo attorney signed in locally.",
-              "Demo attorney",
-              "workspace-session",
-              "Frontend demonstration authentication",
-            ),
-            ...state.auditEvents,
-          ],
-        }));
-        return true;
+      restoreSession: async () => {
+        if (get().sessionRestoring || get().sessionRestored) return;
+        set({ sessionRestoring: true, workspaceError: null });
+        try {
+          const backendUser = await legalBridgeClient.restoreSession();
+          const user = backendUser ? mapBackendUser(backendUser) : null;
+          set({
+            authenticated: Boolean(user),
+            userEmail: user?.email ?? null,
+            currentUser: user,
+            sessionRestored: true,
+            sessionRestoring: false,
+            workspaceReady: publicEnv.dataMode === "mock",
+          });
+        } catch (error) {
+          set({
+            authenticated: false,
+            userEmail: null,
+            currentUser: null,
+            sessionRestored: true,
+            sessionRestoring: false,
+            workspaceError: backendErrorMessage(error),
+          });
+        }
       },
-      signOut: () =>
-        set((state) => ({
+      authenticate: async ({ organizationSlug, email, password }) => {
+        try {
+          const response = await legalBridgeClient.login({
+            organization_slug: organizationSlug,
+            email,
+            password,
+          });
+          const user = mapBackendUser(response.user);
+          set({
+            authenticated: true,
+            userEmail: user.email,
+            currentUser: user,
+            sessionRestored: true,
+            sessionRestoring: false,
+            workspaceReady: publicEnv.dataMode === "mock",
+            workspaceError: null,
+          });
+          return { ok: true };
+        } catch (error) {
+          return { ok: false, message: backendErrorMessage(error) };
+        }
+      },
+      logout: async () => {
+        try {
+          await legalBridgeClient.logout();
+        } catch {
+          // Local session clearing below is required even when the API is unavailable.
+        } finally {
+          set({
+            authenticated: false,
+            userEmail: null,
+            currentUser: null,
+            sessionRestored: true,
+            workspaceReady: false,
+            workspaceError: null,
+          });
+        }
+      },
+      clearSession: () =>
+        set({
           authenticated: false,
           userEmail: null,
-          auditEvents: [
-            audit(
-              state.selectedCaseId,
-              "authentication.signed_out",
-              "Demo attorney signed out locally.",
-              "Demo attorney",
-              "workspace-session",
-              "Case data preserved",
+          currentUser: null,
+          sessionRestored: true,
+          workspaceReady: false,
+        }),
+      refreshWorkspace: async () => {
+        if (publicEnv.dataMode === "mock") {
+          set({ workspaceReady: true, workspaceLoading: false });
+          return;
+        }
+        set({ workspaceLoading: true, workspaceError: null });
+        try {
+          const backendCases = await legalBridgeClient.listCases();
+          set((state) => {
+            const mapped = backendCases.map((backendCase) => {
+              const existing = state.cases.find(
+                (record) =>
+                  record.id === backendCase.id ||
+                  (backendCase.case_number === BACKEND_DEMO_CASE_NUMBER &&
+                    (record.id === DEMO_CASE_ID ||
+                      record.reference === BACKEND_DEMO_CASE_NUMBER ||
+                      record.reference === seedCase.reference)),
+              );
+              return mapBackendCase(backendCase, existing);
+            });
+            const demo = mapped.find(
+              (record) => record.reference === BACKEND_DEMO_CASE_NUMBER,
+            );
+            const auditEvents = demo
+              ? state.auditEvents.map((event) =>
+                  event.caseId === DEMO_CASE_ID
+                    ? {
+                        ...event,
+                        caseId: demo.id,
+                        relatedEntity:
+                          event.relatedEntity === DEMO_CASE_ID
+                            ? demo.id
+                            : event.relatedEntity,
+                        source: event.source ?? "synthetic_fixture",
+                      }
+                    : event,
+                )
+              : state.auditEvents;
+            const selectedCaseId = mapped.some(
+              (record) => record.id === state.selectedCaseId,
+            )
+              ? state.selectedCaseId
+              : demo?.id ?? mapped[0]?.id ?? "";
+            return {
+              cases: mapped,
+              auditEvents,
+              selectedCaseId,
+              workspaceLoading: false,
+              workspaceReady: true,
+              workspaceError: null,
+            };
+          });
+        } catch (error) {
+          set({
+            workspaceLoading: false,
+            workspaceReady: true,
+            workspaceError: backendErrorMessage(error),
+            ...(error instanceof BackendApiError &&
+            error.kind === "UNAUTHORIZED"
+              ? {
+                  authenticated: false,
+                  userEmail: null,
+                  currentUser: null,
+                }
+              : {}),
+          });
+        }
+      },
+      createPersistentCase: async (input) => {
+        if (publicEnv.dataMode === "mock") return get().createCase(input);
+        const user = get().currentUser;
+        if (!user) {
+          throw new BackendApiError(
+            "Authentication is required.",
+            "UNAUTHORIZED",
+            401,
+            "missing_session",
+          );
+        }
+        const backendCase = await legalBridgeClient.createCase(
+          mapNewCaseRequest(input, user),
+        );
+        const created = mapBackendCase(backendCase);
+        set((state) => ({
+          cases: [...state.cases, created],
+          selectedCaseId: created.id,
+        }));
+        return created.id;
+      },
+      syncDocuments: async (caseId) => {
+        if (publicEnv.dataMode === "mock") return;
+        const documents = await legalBridgeClient.listDocuments(caseId);
+        set((state) => ({
+          cases: updateCase(state.cases, caseId, (record) => ({
+            ...record,
+            documents: mergeBackendDocuments(record, documents),
+          })),
+        }));
+      },
+      registerDocumentMetadata: async (caseId, input) => {
+        if (publicEnv.dataMode === "mock") {
+          const type =
+            input.content_type === "application/pdf"
+              ? "PDF"
+              : input.content_type === "text/plain"
+                ? "TXT"
+                : "DOCX";
+          const document: DocumentMeta = {
+            id: makeId("doc-local"),
+            name: input.original_filename,
+            type,
+            mimeType: input.content_type,
+            size: input.size_bytes,
+            status: "processed",
+            addedAt: now(),
+            sourceLabel: `Browser-local metadata · ${input.category}`,
+            category: input.category,
+            sha256: input.sha256,
+            origin: "browser_local",
+          };
+          set((state) => ({
+            cases: updateCase(state.cases, caseId, (record) => ({
+              ...record,
+              documents: [...record.documents, document],
+            })),
+          }));
+          return document;
+        }
+        const backendDocument =
+          await legalBridgeClient.createDocumentMetadata(caseId, input);
+        const document = mapBackendDocument(backendDocument);
+        set((state) => ({
+          cases: updateCase(state.cases, caseId, (record) => ({
+            ...record,
+            documents: [
+              ...record.documents.filter((item) => item.id !== document.id),
+              document,
+            ],
+          })),
+        }));
+        return document;
+      },
+      deleteDocumentMetadata: async (caseId, documentId) => {
+        if (publicEnv.dataMode === "http") {
+          await legalBridgeClient.deleteDocumentMetadata(caseId, documentId);
+        }
+        set((state) => ({
+          cases: updateCase(state.cases, caseId, (record) => ({
+            ...record,
+            documents: record.documents.filter(
+              (document) => document.id !== documentId,
             ),
-            ...state.auditEvents,
-          ],
-        })),
+          })),
+        }));
+      },
+      syncAuditEvents: async (caseId) => {
+        if (publicEnv.dataMode === "mock") return;
+        const events = await legalBridgeClient.listAuditEvents(caseId);
+        set((state) => ({
+          auditEvents: mergeAuditEvents(state.auditEvents, events),
+        }));
+      },
       selectCase: (caseId) => set({ selectedCaseId: caseId }),
       createCase: (input) => {
         const id = makeId("case-local");
@@ -729,51 +980,95 @@ export const useAppStore = create<AppState>()(
           settings: { ...state.settings, ...nextSettings },
         })),
       resetDemo: () =>
-        set((state) => ({
-          authenticated: state.authenticated,
-          userEmail: state.userEmail,
-          selectedCaseId: DEMO_CASE_ID,
-          cases: [freshSeedCase()],
-          auditEvents: [
-            audit(
-              DEMO_CASE_ID,
-              "workspace.reset",
-              "The frontend demonstration workspace was reset.",
-              "Demo attorney",
-              "demo-workspace",
-              "Original synthetic case restored",
-            ),
-            ...structuredClone(seedAuditEvents),
-          ],
-          settings: {
-            reducedMotion: state.settings.reducedMotion,
-            density: state.settings.density,
-            sidebarCollapsed: false,
-          },
-        })),
+        set((state) => {
+          const backendDemo = state.cases.find(
+            (record) => record.reference === BACKEND_DEMO_CASE_NUMBER,
+          );
+          if (publicEnv.dataMode === "http" && backendDemo) {
+            const reset = {
+              ...freshSeedCase(),
+              id: backendDemo.id,
+              title: backendDemo.title,
+              reference: backendDemo.reference,
+              allegation: backendDemo.allegation,
+              allegationType: backendDemo.allegationType,
+              court: backendDemo.court,
+              jurisdiction: backendDemo.jurisdiction,
+              status: backendDemo.status,
+              createdAt: backendDemo.createdAt,
+              documents: backendDemo.documents,
+              assignedAttorneyId: backendDemo.assignedAttorneyId,
+              backendPersisted: true,
+            };
+            return {
+              selectedCaseId: reset.id,
+              cases: state.cases.map((record) =>
+                record.id === reset.id ? reset : record,
+              ),
+              auditEvents: [
+                audit(
+                  reset.id,
+                  "workspace.reset",
+                  "The local synthetic analysis fixture was reset.",
+                  state.currentUser?.fullName ?? "Workspace user",
+                  "demo-workspace",
+                  "Backend case and document metadata were preserved",
+                ),
+                ...state.auditEvents.filter(
+                  (event) =>
+                    event.caseId !== reset.id || event.source === "backend",
+                ),
+              ],
+              settings: {
+                reducedMotion: state.settings.reducedMotion,
+                density: state.settings.density,
+                sidebarCollapsed: false,
+              },
+            };
+          }
+          return {
+            selectedCaseId: DEMO_CASE_ID,
+            cases: [freshSeedCase()],
+            auditEvents: [
+              audit(
+                DEMO_CASE_ID,
+                "workspace.reset",
+                "The frontend demonstration workspace was reset.",
+                "Demo attorney",
+                "demo-workspace",
+                "Original synthetic case restored",
+              ),
+              ...structuredClone(seedAuditEvents),
+            ],
+            settings: {
+              reducedMotion: state.settings.reducedMotion,
+              density: state.settings.density,
+              sidebarCollapsed: false,
+            },
+          };
+        }),
     }),
     {
       name: "legalbridge-demo-store",
-      version: 1,
+      version: 2,
       partialize: (state) => ({
-        authenticated: state.authenticated,
-        userEmail: state.userEmail,
         selectedCaseId: state.selectedCaseId,
         cases: state.cases,
         auditEvents: state.auditEvents,
         settings: state.settings,
       }),
-      migrate: (persisted, version) => {
-        if (version !== 1) {
-          return {
-            ...(persisted as Partial<AppState>),
-            cases: [freshSeedCase()],
-            selectedCaseId: DEMO_CASE_ID,
-            auditEvents: structuredClone(seedAuditEvents),
-          } as AppState;
-        }
-        return persisted as AppState;
-      },
+      migrate: (persisted) =>
+        ({
+          ...(persisted as Partial<AppState>),
+          authenticated: false,
+          userEmail: null,
+          currentUser: null,
+          sessionRestored: false,
+          sessionRestoring: false,
+          workspaceLoading: false,
+          workspaceReady: false,
+          workspaceError: null,
+        }) as AppState,
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
       },

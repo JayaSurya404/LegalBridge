@@ -2,116 +2,125 @@
 
 Problem statement: `SDGGAIP016`
 
-LegalBridge India is a frontend-only attorney-assistance hackathon prototype for organising synthetic case records into source-linked observations, a reconstructed timeline, contradiction review, potential procedural concerns, closed demonstration research, an ethics-screened strategy, and a draft motion. It deliberately stops at a named attorney approval gate.
+LegalBridge India is an attorney-assistance hackathon prototype aligned with SDG 16.3 and SDG 10.3. The Phase 4 checkpoint connects the Next.js workspace to a real FastAPI persistence and authentication API while keeping every legal-analysis output explicitly synthetic.
 
-> **Legal disclaimer:** This is not an official government service, a source of final legal advice, a replacement for professional legal judgment, or an automatic court-filing system. Every output requires attorney verification. The current demonstration uses only synthetic data and synthetic authorities that have not been checked against a legal corpus.
+> **Legal disclaimer:** This is not an official government service, a source of final legal advice, a replacement for professional legal judgment, or an automatic court-filing system. Every output requires attorney verification. The demonstration legal analysis and authorities are synthetic and have not been checked against a legal corpus.
 
-## SDG alignment and product principles
+The operating principles are:
 
-- SDG 16.3: promote the rule of law and equal access to justice.
-- SDG 10.3: promote equal opportunity and reduce inequality.
 - “Autonomous until review, never autonomous at filing.”
 - “No source, no legal claim. No lawyer approval, no export.”
 
+## Implemented checkpoint
+
+Phase 4 provides:
+
+- Real organisation-scoped sign-in, current-user verification, refresh-token rotation, and logout revocation.
+- SQLite-backed case, document-metadata, and audit-event persistence through FastAPI.
+- Backend database IDs as the frontend routing identity.
+- Browser SHA-256 calculation for selected PDF, TXT, and DOCX files.
+- Metadata-only document registration and deletion; selected file bytes are discarded.
+- A closed synthetic legal-analysis fixture attached only to backend case `LB-DEMO-2026-001`.
+- A deterministic frontend workflow, motion versioning, attorney approval, approval invalidation, and export safety gate.
+
+It does **not** provide binary upload, object storage, PDF or DOCX parsing, OCR, transcription, backend agent execution, AI providers, LangGraph, RAG, embeddings, pgvector, real legal research, verified statutes or precedents, citation verification, server-side motion generation, digital signatures, or court filing.
+
 ## Requirements
 
-- Node.js 20.9 or newer; an active LTS release is recommended.
+- Node.js 20.9 or newer.
 - pnpm 10 or newer.
-- A modern browser with localStorage enabled.
+- Python 3.10 or newer.
+- The existing backend virtual environment at `server/.venv`.
+- A modern browser with `sessionStorage`, `localStorage`, and Web Crypto support.
 
-If pnpm is unavailable, use:
+## Configuration
 
-```sh
-corepack enable && corepack prepare pnpm@latest --activate
+Copy `client/.env.example` to the ignored `client/.env.local`. Phase 4 local development uses:
+
+```dotenv
+NEXT_PUBLIC_DATA_MODE=http
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-On Windows PowerShell systems that block the `pnpm.ps1` shim, the equivalent executable is `pnpm.cmd`.
+For the isolated deterministic frontend provider, use:
+
+```dotenv
+NEXT_PUBLIC_DATA_MODE=mock
+```
+
+Do not put passwords, tokens, API keys, or other secrets in `NEXT_PUBLIC_*`.
+
+The HTTP-mode hackathon session stores the verified user, access token, rotating refresh token, and access-token expiry in browser `sessionStorage`; tokens are never persisted in Zustand or `localStorage`. A production implementation should use stronger secure, HttpOnly, same-site cookie controls and appropriate CSRF protections.
 
 ## Install and run
 
-```sh
+Install the frontend workspace dependencies:
+
+```powershell
 pnpm install
+```
+
+Start both applications in separate PowerShell windows:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start_fullstack.ps1
+```
+
+The script checks ports before starting processes:
+
+- Frontend: `http://localhost:3000`
+- Backend Swagger: `http://127.0.0.1:8000/docs`
+
+Root pnpm commands intentionally operate on the client only:
+
+```powershell
 pnpm dev
+pnpm lint
+pnpm typecheck
+pnpm build
+pnpm check
 ```
 
-Open `http://localhost:3000`.
+## Development credentials
 
-Root commands:
+Organisation workspace: `legalbridge-demo`
 
-```sh
-pnpm dev        # Next.js client only
-pnpm lint       # ESLint with zero warnings
-pnpm typecheck  # strict TypeScript, no emit
-pnpm build      # production Next.js build
-pnpm check      # lint, type-check, and build
+| Role | Email | Password |
+| --- | --- | --- |
+| Attorney | `attorney@legalbridge.demo` | `LegalBridge@2026` |
+| Admin | `admin@legalbridge.demo` | `LegalBridgeAdmin@2026` |
+
+Attorney review PIN for the closed frontend demonstration: `2026`.
+
+## Phase 4 smoke test
+
+The focused smoke test starts a temporary FastAPI process on a free port from 8765 through 8799, checks health, real login, `/auth/me`, persistent case listing, and refresh-token rotation, then stops that exact process in `finally`.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\smoke_phase4.ps1 -Port 8765
 ```
-
-No backend process is started by any root command.
-
-## Frontend demonstration credentials
-
-- Email: `attorney@legalbridge.demo`
-- Password: `LegalBridge@2026`
-- Attorney review PIN: `2026`
-
-These values are local frontend demonstration credentials, not production authentication. The password and PIN are not persisted.
 
 ## Demonstration walkthrough
 
-1. Open `/`, read the prototype notice, and choose **Enter Demo Workspace**.
-2. Sign in with the demonstration credentials.
-3. Open **Nayak Property Papers Matter**.
-4. Review browser-local document metadata.
-5. Start the fixed 15-agent workflow, pause it, resume it, inspect a node, and allow it to complete.
-6. Inspect the conflicting arrest times in Timeline, then the arrest, seizure, and witness comparisons in Contradictions.
-7. Review the four cautiously phrased potential concerns and the five closed synthetic authority records.
-8. Open Strategy, then Ethics, and reject the unsupported intentional-fabrication allegation.
-9. Open Motion Studio and confirm the Citation Firewall shows 9/9 resolved, 0 phantom citations, 0 unsupported final claims, and 1 ethics rejection.
-10. Open Attorney Review, enter a reviewer name, PIN `2026`, accept responsibility, and approve the exact version.
-11. Use **Print or Save as PDF**. No court filing occurs.
-12. Edit and save the motion; verify approval is revoked and export locks immediately.
-13. Inspect the audit log and deterministic observability dashboard.
-14. Use Settings to reset the browser-local demo.
+1. Open `/`, enter the demo workspace, and use the attorney credential autofill.
+2. Sign in through FastAPI and confirm the shell shows the authenticated name and role.
+3. Refresh persistent cases and open backend case `LB-DEMO-2026-001`.
+4. Review its separately labelled closed synthetic source and analysis fixtures.
+5. Select a safe PDF, TXT, or DOCX file; confirm only metadata and a browser-computed SHA-256 are registered.
+6. Refresh or delete document metadata and inspect the synchronised backend audit events.
+7. Create a new backend case and confirm it has empty analysis state rather than copied demo findings.
+8. Run the fixed frontend workflow on the demonstration case and inspect Timeline, Contradictions, Procedural Audit, Research, Strategy, and Ethics.
+9. Open Motion Studio and confirm the Citation Firewall blocks unsupported output.
+10. Approve the exact saved synthetic motion version with PIN `2026`; edit it and verify approval is revoked and export locks.
+11. Sign out and confirm the backend refresh session is revoked while local clearing still completes.
 
-## Repository structure
+## Data and safety boundaries
 
-```text
-.
-├── client/                   Next.js frontend
-│   ├── public/               Original icon and social preview
-│   └── src/
-│       ├── app/              App Router routes and boundaries
-│       ├── components/       Brand, layout, navigation, shared, and UI
-│       ├── features/         Product modules
-│       ├── lib/              Contracts, mock data, providers, and utilities
-│       └── stores/           Versioned Zustand frontend state
-├── data/                     Documentation-only synthetic data boundary
-├── docs/                     Product, architecture, safety, and demo documents
-├── server/                   Future-backend documentation only
-├── infra/                    Future-infrastructure documentation only
-├── scripts/                  Future repository scripts boundary
-└── tests/                    Test strategy documentation
-```
+- Backend authentication, cases, document metadata, and their audit events are authoritative.
+- The demonstration legal facts, analysis, authorities, workflow outputs, motion, and related audit fixtures are deterministic synthetic frontend data.
+- Newly created backend cases receive no timeline, contradictions, procedural findings, authorities, strategy, citations, or motion.
+- Raw selected file bytes are never sent to FastAPI and are discarded after local hashing.
+- No real confidential or personal case information should be entered during hackathon development.
+- No automatic filing path exists. Export remains tied to attorney approval of the exact saved motion version.
 
-## Current frontend behaviour
-
-- Next.js 16 App Router with strict TypeScript and responsive Tailwind styling.
-- Public overview, Zod/RHF demo sign-in, hydration-safe client guard, desktop sidebar, and accessible mobile drawer.
-- Zustand localStorage persistence with a versioned reset path.
-- Deterministic 15-agent workflow with start, pause, resume, reset, node inspection, and refresh survival.
-- Local case creation and file metadata validation for PDF, TXT, and DOCX; no binary persistence or upload.
-- Source-linked timeline, contradiction comparisons, procedural screening, and closed synthetic authority review.
-- Strategy, mandatory Ethics Auditor rejection, editable/versioned motion, Citation Firewall, attorney approval, approval invalidation, print gate, audit history, observability, and settings.
-- TanStack Query provider and typed mock/HTTP client boundary. HTTP mode intentionally returns a controlled unsupported-checkpoint error and is not selectable.
-
-## Frontend-only limitations
-
-Authentication, processing, token counts, costs, time-reduction figures, citations, authorities, legal reasoning, and audit records are demonstration behaviour. There is no OCR, PDF/DOCX parsing, real legal research, real citation verification, backend, database, cloud storage, server-side PDF generation, authentication service, malware scanning, or automatic filing.
-
-The file picker discards binary contents after deriving safe metadata. Browser state is neither secure nor authoritative.
-
-## Planned later phases
-
-The next safe phase is a backend foundation with FastAPI, typed contract parity, a health endpoint, configuration validation, Supabase connection planning, and activation of the mock-to-HTTP client boundary. LangGraph, Gemini, secure document processing, retrieval, citation verification, Storage, PostgreSQL/pgvector, SSE, and Docker remain later planned work.
-
-No future component described in this repository is currently implemented.
+See [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the verified implementation and test status.

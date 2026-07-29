@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  RefreshCw,
   Settings,
   X,
 } from "lucide-react";
@@ -81,7 +82,7 @@ function Navigation({
       {!collapsed && (
         <div className="m-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">
           <FileStack className="mb-2 size-4" aria-hidden="true" />
-          Synthetic frontend data. No government affiliation or automatic filing.
+          Cases and metadata persist to the local API. Legal analysis remains synthetic.
         </div>
       )}
     </>
@@ -93,12 +94,21 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const hydrated = useAppStore((state) => state.hydrated);
+  const sessionRestored = useAppStore((state) => state.sessionRestored);
+  const sessionRestoring = useAppStore((state) => state.sessionRestoring);
   const authenticated = useAppStore((state) => state.authenticated);
-  const userEmail = useAppStore((state) => state.userEmail);
+  const currentUser = useAppStore((state) => state.currentUser);
+  const workspaceLoading = useAppStore((state) => state.workspaceLoading);
+  const workspaceReady = useAppStore((state) => state.workspaceReady);
+  const workspaceError = useAppStore((state) => state.workspaceError);
   const settings = useAppStore((state) => state.settings);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const signOut = useAppStore((state) => state.signOut);
+  const restoreSession = useAppStore((state) => state.restoreSession);
+  const logout = useAppStore((state) => state.logout);
+  const clearSession = useAppStore((state) => state.clearSession);
+  const refreshWorkspace = useAppStore((state) => state.refreshWorkspace);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     if (!useAppStore.persist.hasHydrated()) {
@@ -109,11 +119,53 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   }, [hydrated]);
 
   useEffect(() => {
-    if (hydrated && !authenticated) {
+    if (hydrated && !sessionRestored && !sessionRestoring) {
+      void restoreSession();
+    }
+  }, [hydrated, restoreSession, sessionRestored, sessionRestoring]);
+
+  useEffect(() => {
+    const handleClearedSession = () => clearSession();
+    window.addEventListener("legalbridge:session-cleared", handleClearedSession);
+    return () =>
+      window.removeEventListener(
+        "legalbridge:session-cleared",
+        handleClearedSession,
+      );
+  }, [clearSession]);
+
+  useEffect(() => {
+    if (hydrated && sessionRestored && !authenticated) {
       const destination = `${pathname}${searchParams.size ? `?${searchParams.toString()}` : ""}`;
       router.replace(`/sign-in?next=${encodeURIComponent(destination)}`);
     }
-  }, [authenticated, hydrated, pathname, router, searchParams]);
+  }, [
+    authenticated,
+    hydrated,
+    pathname,
+    router,
+    searchParams,
+    sessionRestored,
+  ]);
+
+  useEffect(() => {
+    if (
+      hydrated &&
+      sessionRestored &&
+      authenticated &&
+      !workspaceReady &&
+      !workspaceLoading
+    ) {
+      void refreshWorkspace();
+    }
+  }, [
+    authenticated,
+    hydrated,
+    refreshWorkspace,
+    sessionRestored,
+    workspaceLoading,
+    workspaceReady,
+  ]);
 
   const breadcrumb = useMemo(() => {
     const segments = pathname.split("/").filter(Boolean);
@@ -127,12 +179,18 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       .join(" / ");
   }, [pathname]);
 
-  if (!hydrated || !authenticated) {
+  if (
+    !hydrated ||
+    !sessionRestored ||
+    sessionRestoring ||
+    (authenticated && !workspaceReady) ||
+    !authenticated
+  ) {
     return (
       <main className="grid min-h-screen place-items-center bg-[var(--cream)] p-6" aria-live="polite">
         <div className="text-center">
           <LegalBridgeLogo />
-          <p className="mt-4 text-sm text-[var(--slate)]">Restoring the browser-local demo session…</p>
+          <p className="mt-4 text-sm text-[var(--slate)]">Restoring and verifying the backend session…</p>
         </div>
       </main>
     );
@@ -201,14 +259,36 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden text-xs text-[var(--slate)] md:inline">{userEmail}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={workspaceLoading}
+              onClick={() => void refreshWorkspace()}
+              aria-label="Refresh persistent workspace"
+            >
+              <RefreshCw
+                className={`size-4 ${workspaceLoading ? "animate-spin" : ""}`}
+                aria-hidden="true"
+              />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+            <span className="hidden text-right text-xs text-[var(--slate)] md:inline">
+              <span className="block font-semibold text-[var(--navy)]">
+                {currentUser?.fullName}
+              </span>
+              <span className="capitalize">{currentUser?.role}</span>
+            </span>
             <Button
               variant="ghost"
               size="sm"
               aria-label="Sign out"
+              disabled={signingOut}
               onClick={() => {
-                signOut();
-                router.replace("/sign-in");
+                setSigningOut(true);
+                void logout().finally(() => {
+                  router.replace("/sign-in");
+                  setSigningOut(false);
+                });
               }}
             >
               <LogOut className="size-4" aria-hidden="true" />
@@ -217,10 +297,18 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <main id="main-content" className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8">
+          {workspaceError && (
+            <div
+              role="alert"
+              className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900"
+            >
+              {workspaceError} Persisted local display state remains visible; no mock fallback was used.
+            </div>
+          )}
           {children}
         </main>
         <footer className="no-print border-t border-[var(--border)] px-6 py-4 text-center text-xs leading-5 text-[var(--slate)]">
-          Attorney-assistance hackathon prototype · Synthetic demonstration data · Not final legal advice · Not automatically filed
+          Attorney-assistance hackathon prototype · Real case persistence · Synthetic legal analysis · Not final legal advice · Not automatically filed
         </footer>
       </div>
     </div>

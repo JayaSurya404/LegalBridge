@@ -34,14 +34,18 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
             Configuration error
           </p>
           <h1 className="mt-2 font-serif text-2xl font-semibold text-[var(--navy)]">
-            The demonstration data mode is not supported
+            The frontend data mode is not configured
           </h1>
           <p className="mt-3 text-sm leading-6 text-[var(--slate)]">
-            {publicEnv.configurationError} Set{" "}
+            {publicEnv.configurationError} Use{" "}
             <code className="rounded bg-slate-100 px-1.5 py-1">
               NEXT_PUBLIC_DATA_MODE=mock
             </code>{" "}
-            or remove the variable to use the safe default.
+            or configure HTTP mode with{" "}
+            <code className="rounded bg-slate-100 px-1.5 py-1">
+              NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+            </code>
+            .
           </p>
         </section>
       </main>

@@ -5,7 +5,10 @@ dist/
 .env
 .env.local
 .env.*.local
+client/.env.local
 *.log
+*.bak
+*.backup
 .DS_Store
 Thumbs.db
 .pnpm-store/
@@ -16,6 +19,7 @@ server/.venv/
 server/.env
 server/legalbridge.db
 server/legalbridge.db-*
+server/*.egg-info/
 server/.pytest_cache/
 server/.ruff_cache/
 **/__pycache__/

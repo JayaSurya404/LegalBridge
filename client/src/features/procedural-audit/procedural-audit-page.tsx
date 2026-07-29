@@ -23,7 +23,7 @@ export function ProceduralAuditPage() {
           title="No procedural findings are available"
           description={
             record.workflow.status === "completed"
-              ? "The orchestration simulation completed, but browser-created cases do not receive case-specific findings because this frontend does not parse selected files."
+              ? "The orchestration simulation completed, but newly persisted backend cases do not receive case-specific findings because this checkpoint does not parse selected files."
               : "Run the deterministic workflow on the preloaded synthetic matter to review closed demonstration-only screening results."
           }
         />

@@ -1,132 +1,154 @@
-# Current state
+# LegalBridge India current state
 
-Updated: 29 July 2026
+Updated: 2026-07-29
 
-## Repository state found
+Repository: `D:\LegalBridge`
 
-- Existing pnpm workspace on branch `main`, tracking the unchanged `origin` remote.
-- Phase 2 work did not modify existing frontend files or frontend package manifests.
-- `node_modules` was already present; dependency installation was not needed.
-- The Next.js client, synthetic fixtures, local Zustand state, typed API abstraction, and all required route files were already present.
+Branch: `main`
 
-## Frontend already present
+Checkpoint: Phase 4 complete — real Next.js to FastAPI integration
 
-- Next.js 16.2.12 App Router client with React 19.2, strict TypeScript, Tailwind CSS, shadcn-style primitives, local assets, metadata, and print rules.
-- Public landing and sign-in pages, local demonstration credentials, persisted authentication state, hydration-safe protected shell, sign-out, desktop sidebar, mobile drawer, breadcrumbs, toast system, and loading/error/not-found/configuration states.
-- Dashboard, case search and filtering, six-step browser-local case creation, case overview, document metadata selection, deterministic 15-agent workflow, analysis pages, strategy, ethics, Motion Studio, Citation Firewall, attorney review, browser print gate, audit history, observability, display preferences, and safe demo reset.
-- Deterministic synthetic case data, closed fictional authorities, typed frontend contracts, mock client, unavailable HTTP adapter, query keys, and TanStack Query provider.
+## Product boundary
 
-## Continuation work completed
+LegalBridge India remains an attorney-assistance hackathon prototype for problem statement `SDGGAIP016`, aligned with SDG 16.3 and SDG 10.3.
 
-- Centralised motion, citation, ethics, approval-version, mock-hash, and export eligibility in one frontend gate.
-- Added blocking checks for missing or incomplete citation support, unresolved ethics revisions, included blocked strategies, and ethics-rejected arguments manually reinserted into the saved motion.
-- Bound export to a valid saved motion body, deterministic mock hash, current approval version, and all current Citation Firewall and ethics conditions.
-- Invalidated attorney approval when an ethics decision changes and prevented duplicate workflow, document-processing, ethics-review, and approval transitions.
-- Made the Citation Firewall metrics derive from actual case state while retaining the required seed result: 9 citations, 9 resolved source records, 9 verified quotations, 9 supported propositions, 0 phantom citations, 0 unsupported final claims, and 1 required ethics rejection.
-- Added visible, cancellable simulated document-processing progress, extension/MIME/size/empty/duplicate/safe-name/capacity validation, and store-level duplicate/capacity protection.
-- Added workflow-created audit events for facts, timeline events, contradictions, and potential procedural concerns when the closed seed fixtures exist.
-- Locked workflow start until document metadata exists and simulated processing is complete.
-- Clarified the browser-created-case boundary: custom files are not parsed, orchestration can be demonstrated, and no case-specific legal outputs are fabricated.
-- Repaired custom-case empty states and removed inaccurate fixed fact/citation percentages from case and observability summaries.
-- Added print-view draft watermarking, more complete approval preconditions, invalid/stale approval states, and dynamic locked-export explanations.
-- Connected case-wizard and attorney-review errors to their inputs for assistive technology.
-- Corrected the mock sign-in response so an email is returned only for valid credentials and made the unavailable HTTP adapter reject predictably.
+- “Autonomous until review, never autonomous at filing.”
+- “No source, no legal claim. No lawyer approval, no export.”
 
-## Phase 2 backend foundation completed
+Authentication and persistence are now real. Legal analysis is not: the facts, timeline, contradictions, potential procedural concerns, authorities, strategies, citations, motion, workflow execution, token/cost metrics, and related analysis audit entries remain closed deterministic synthetic fixtures requiring attorney verification.
 
-- Added a Python 3.10+ FastAPI application factory and exported application instance under `server/app`.
-- Added the versioned `/api/v1` router, root service metadata, health, readiness, and capability endpoints.
-- Added localhost CORS, request IDs, process-time headers, standard request logging, safe structured errors, Pydantic Settings, and optional local `.env` loading.
-- Readiness reports the API as ready while database, storage, and AI remain `not_configured`.
-- Capabilities report document processing and legal research as unavailable, multi-agent execution and citation verification as frontend simulations only, and automatic court filing as prohibited.
-- Added exact runtime and development dependency pins, a repository-local `server/.venv`, focused endpoint tests, Ruff configuration, an environment example, and PowerShell start/test helpers.
-- The frontend remains in deterministic `mock` mode; its unavailable HTTP adapter was not activated or changed.
+## Preserved Phase 1–3 state
 
-## Phase 3 persistence and authentication completed
+- The responsive Next.js App Router workspace, accessibility behavior, deterministic 15-agent frontend simulation, legal-analysis views, Ethics Auditor, Motion Studio, Citation Firewall, version-bound attorney approval, approval invalidation, print gate, observability, and display settings remain available.
+- The Phase 3 backend remains intact: organisation isolation, users and roles, Argon2 password hashing, access tokens, rotating and revocable refresh sessions, cases, document metadata, audit events, SQLAlchemy models, SQLite development persistence, PostgreSQL-compatible modeling, Alembic migrations, controlled errors, request IDs, CORS, readiness, and capability reporting.
+- No Phase 4 backend route, schema, model, migration, seed, or test was changed.
+- The real local SQLite database was preserved.
 
-- Added async SQLAlchemy 2.0 configuration and sessions with local SQLite and PostgreSQL-compatible models.
-- Added Alembic configuration and the initial migration for organisations, users, refresh sessions, cases, document metadata, and audit events. Normal application startup does not create tables.
-- Added organisation-scoped `admin`, `attorney`, and `reviewer` identities; Argon2 password hashing; HS256 access tokens; rotating, revocable refresh sessions; token-version invalidation; role dependencies; and generic login failures.
-- Added administrator-only user provisioning and activation controls, including self-deactivation protection and audit events.
-- Added organisation-isolated case list, create, read, update, and archive APIs. Cross-organisation access returns 404, and assigned attorneys must be active attorneys in the same organisation.
-- Added JSON-only PDF, TXT, and DOCX metadata APIs with filename, declared-size, SHA-256, duplicate, and 50 MB validation. No binary content is accepted or stored.
-- Added case audit history ordered newest first and audit writes for sign-in, password changes, user management, case mutations, document metadata mutations, and demo bootstrap.
-- Updated readiness to query the configured database and capabilities to report the Phase 3 boundary accurately.
-- Applied the initial migration to the ignored local `server/legalbridge.db` and ran the idempotent synthetic demo bootstrap.
-- Added `scripts/init_backend_data.ps1` for migration and bootstrap initialization.
-- The frontend remains unchanged in deterministic `mock` mode; real frontend/backend integration has not started.
+## Phase 4 frontend integration
 
-## Routes and surfaces inspected
+### Environment and client selection
 
-Public routes:
+- `NEXT_PUBLIC_DATA_MODE` accepts `mock` or `http`.
+- HTTP mode requires a valid `NEXT_PUBLIC_API_BASE_URL`.
+- The ignored `client/.env.local` selects `http://127.0.0.1:8000` for local development.
+- Public environment variables contain no secrets.
+- HTTP errors remain visible and never trigger a silent mock fallback.
 
-- `/`
-- `/sign-in`
+### Authentication and session behavior
 
-Protected routes:
+- The sign-in form collects organisation workspace slug, email, and password using React Hook Form and Zod.
+- It provides accessible validation, show/hide password, loading state, real backend errors, request IDs when present, and attorney credential autofill.
+- Login, refresh, logout, and current-user verification use the Phase 3 FastAPI endpoints.
+- The hackathon session stores the user, access token, rotating refresh token, and access-token expiry in `sessionStorage`.
+- Tokens and the current user are excluded from persisted Zustand state and `localStorage`.
+- Browser refresh restores the session and verifies it through `/api/v1/auth/me`.
+- Authenticated requests pre-emptively refresh expired access tokens and retry once after a 401.
+- A module-level shared refresh promise allows only one token rotation at a time.
+- Refresh failure clears session storage and protected workspace state.
+- Logout attempts backend revocation and always clears the local session, including during backend unavailability.
+- Protected routes wait for Zustand hydration and session restoration, redirect safely to sign-in, and retain a valid internal requested route.
 
-- `/dashboard`
-- `/cases`
-- `/cases/new`
-- `/cases/[caseId]`
-- `/cases/[caseId]/documents`
-- `/cases/[caseId]/workflow`
-- `/cases/[caseId]/timeline`
-- `/cases/[caseId]/contradictions`
-- `/cases/[caseId]/procedural-audit`
-- `/cases/[caseId]/research`
-- `/cases/[caseId]/strategy`
-- `/cases/[caseId]/ethics`
-- `/cases/[caseId]/motion`
-- `/cases/[caseId]/review`
-- `/cases/[caseId]/audit-log`
-- `/observability`
-- `/settings`
+`sessionStorage` is suitable only for this hackathon checkpoint. Production should use stronger secure, HttpOnly, same-site cookie controls and appropriate CSRF protections.
 
-Also inspected the root loading, error, and not-found boundaries; authentication guard; responsive workspace navigation; case navigation; dialogs; shared status and disclaimer components; persisted app store; domain contracts; synthetic seed; API adapters; public environment handling; and responsive/print styles.
+### Persistent cases
 
-## Known limitations
+- Case lists load from FastAPI after authentication and can be refreshed.
+- Search, status filters, review filters, backend error messaging, and database-ID navigation are retained.
+- The accessible six-step case wizard persists title, unique case number, allegation summary, allegation type, court/forum, and jurisdiction.
+- The signed-in attorney is assigned when the authenticated role is `attorney`.
+- Duplicate case-number conflicts and structured validation errors are shown without collecting real confidential data.
+- New backend cases receive empty analysis, workflow outputs explaining the boundary, and no copied demo timeline, contradictions, findings, authorities, strategies, citations, or motion.
 
-- Authentication, document processing, workflow activity, legal analysis, citations, authorities, token counts, costs, time-reduction figures, and audit records are deterministic frontend demonstrations.
-- Browser-created files are reduced to safe metadata. No binary is persisted, uploaded, parsed, or used to generate case-specific findings.
-- Only the preloaded synthetic matter contains the closed timeline, contradiction, procedural, research, strategy, ethics, citation, and motion fixtures.
-- Browser-local state is neither secure nor authoritative.
-- Browser print/Save as PDF is the only export mechanism and never files anything with a court.
-- The FastAPI service now persists Phase 3 organisations, users, authentication sessions, cases, document metadata, and audit events locally.
-- There is no binary or cloud storage, Supabase connection, OCR, document parsing, transcription, AI/model integration, RAG, embeddings, pgvector, real legal research, verified legal corpus, backend multi-agent execution, citation verification, motion generation, streaming, server-side PDF generation, digital signature, or automatic filing.
+Backend case `LB-DEMO-2026-001` is matched by case number. Its database ID is authoritative for routes and API calls; backend metadata is authoritative for identity. Only this case receives the existing closed synthetic analysis fixture. Safe browser-local workflow progress, motion edits, and approval state are preserved across backend refreshes.
 
-## Verification
+### Document metadata
 
-- Frontend preflight: `pnpm typecheck` passed (`tsc --noEmit`) on the first run.
-- Backend lint: `server/.venv/Scripts/python.exe -m ruff check --no-cache app tests` passed with `All checks passed!` after correcting the initial findings.
-- Focused backend tests: `server/.venv/Scripts/python.exe -m pytest tests` passed with 11 tests in 0.65 seconds.
-- The test run emitted one dependency deprecation warning from FastAPI's compatibility `TestClient`; the pinned dependency set was retained.
-- Pytest's cache provider is disabled in backend test configuration because cache-directory creation blocked during session teardown in the managed workspace.
-- By user request, this Phase 2 work did not run frontend lint, build, check, development server, browser automation, or localhost testing.
-- No frontend or backend development server was started.
-- Phase 3 dependency installation completed inside `server/.venv`.
-- Alembic upgrade `0001_phase3` completed against the local SQLite database.
-- The demo bootstrap completed and created the synthetic organisation, admin, attorney, case, and bootstrap audit event without exposing secrets in logs.
-- Ruff safe fixes completed with 6 fixes, Ruff formatting completed with 6 files reformatted, and the final Ruff check passed with `All checks passed!`.
-- Focused Phase 3 pytest completed with 17 passing tests in 4.30 seconds.
-- The test run retained one dependency deprecation warning from FastAPI's compatibility `TestClient`; the requested pinned HTTPX version was preserved.
-- Pytest required managed filesystem permission for isolated temporary SQLite databases; no test used the development database.
+- The document page lists, creates, and deletes real backend document metadata.
+- It accepts PDF, TXT, and DOCX selections, validates filename safety, exact extension/MIME agreement, non-empty size, the 50 MB limit, duplicates, and the 12-record case limit.
+- Browser Web Crypto computes SHA-256 locally.
+- Only `original_filename`, `content_type`, `size_bytes`, `sha256`, and `category` are sent to FastAPI.
+- Deterministic progress covers hashing and registration.
+- Duplicate SHA-256 conflicts and backend request IDs are surfaced.
+- Selected `File` objects are discarded after the registration batch.
+- Backend audit events are resynchronised after metadata creation and deletion.
+- Closed synthetic source fixtures are visibly separated from backend metadata and cannot be deleted through the metadata API.
 
-## Package and installation status
+No file bytes are uploaded or persisted. No parsing, OCR, transcription, malware scanning, or AI analysis occurs.
 
-- `package.json`, `client/package.json`, and `pnpm-lock.yaml` were not changed.
-- No frontend dependency was added or upgraded, and `pnpm install` was not run.
-- Created `server/.venv` with Python 3.12.10 and installed only the exact backend pins from `server/requirements-dev.txt`.
-- Runtime pins: FastAPI 0.140.13, Uvicorn 0.52.0, and pydantic-settings 2.14.2.
-- Development pins: HTTPX 0.28.1, pytest 9.1.1, and Ruff 0.16.0.
-- Phase 3 runtime pins added: aiosqlite 0.21.0, Alembic 1.17.1, asyncpg 0.30.0, email-validator 2.3.0, pwdlib 0.3.0 with Argon2, PyJWT 2.10.1, and SQLAlchemy 2.0.44 with asyncio support.
-- No package was installed globally, and no local `.env` containing credentials was created.
+### Audit synchronisation
 
-## Git and phase boundary
+- Case audit events load from FastAPI and map into the existing audit interface.
+- Events show actor, event type, related entity, timestamp, metadata, and source.
+- Backend authentication, case, and document-metadata events are authoritative.
+- Closed synthetic workflow and analysis events remain available only for the demonstration case.
+- Merging deduplicates by event ID and the UI sorts newest first.
+- Mount effects do not manufacture duplicate events during React rerenders.
 
-- The handoff working tree contains unstaged Phase 3 backend and documentation changes; no frontend file was modified by Phase 3.
-- No files were staged.
-- No commit or push was performed.
-- No branch, remote, or Git history change was performed.
-- The authorised Phase 3 persistence and authentication backend is complete and was not started as a live server.
-- Phase 4 was not started.
+### Workspace shell
+
+- The shell waits for both persisted-store hydration and verified backend-session restoration.
+- It shows the authenticated user’s name and role.
+- It includes persistent workspace refresh and real backend logout.
+- Desktop sidebar, mobile drawer, keyboard behavior, focus states, loading states, and explicit backend-error feedback remain.
+- Product copy distinguishes real persistence from synthetic legal analysis.
+
+## Local scripts
+
+`scripts/start_fullstack.ps1`:
+
+- Resolves the repository root.
+- Verifies pnpm and `server/.venv`.
+- Starts FastAPI on port 8000 and Next.js on port 3000 in separate PowerShell windows only when each port is free.
+- Does not start duplicate processes for occupied ports.
+- Prints the frontend URL, Swagger URL, workspace slug, and development credentials.
+
+Run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start_fullstack.ps1
+```
+
+`scripts/smoke_phase4.ps1`:
+
+- Accepts a requested port from 8765 through 8799 and selects another free port in that range when necessary.
+- Starts a hidden temporary FastAPI process.
+- Verifies health, real login, `/auth/me`, the persistent demonstration case, and refresh-token rotation.
+- Stops that exact temporary process in `finally`.
+- Does not depend on ports 3000 or 8000.
+
+## Verified results
+
+Verification completed on 2026-07-29:
+
+- Backend Ruff: `server/.venv/Scripts/python.exe -m ruff check --no-cache app tests` — passed, “All checks passed.” The initial cache-enabled invocation was blocked before linting by managed `.ruff_cache` permissions.
+- Phase 3 pytest: `server/.venv/Scripts/python.exe -m pytest tests --basetemp C:\tmp\legalbridge-phase4-pytest-019fad6f` — 17 passed, 1 third-party Starlette deprecation warning, in 3.93 seconds. Managed temp permissions blocked the initial setup attempts before any test ran; the final isolated run was authorised outside the sandbox.
+- Frontend type-check: `pnpm typecheck` — passed after correcting the syntax failure found by its first run.
+- Frontend lint: `pnpm lint` — passed with zero warnings after correcting the React effect-pattern failure found by its first run.
+- Frontend production build: `pnpm build` — passed with Next.js 16.2.12 using the HTTP `.env.local`.
+- Phase 4 smoke: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke_phase4.ps1 -Port 8765` — passed on `http://127.0.0.1:8765`; health, login, `/auth/me`, persistent cases, and refresh rotation verified.
+- No browser automation was run.
+- No frontend or backend development server was left running by verification.
+
+## Explicitly not implemented
+
+- Binary file upload or object/cloud storage
+- PDF or DOCX parsing
+- OCR or audio transcription
+- AI/model providers or Gemini calls
+- LangGraph or backend multi-agent execution
+- RAG, embeddings, PostgreSQL activation, or pgvector
+- Real legal research, statutes, precedents, or a verified legal corpus
+- Real citation verification
+- Backend motion generation or server-side PDF generation
+- Digital signatures
+- Automatic court filing
+- Docker or cloud deployment
+
+## Repository state
+
+- `.git`, branch `main`, history, and remote `origin` were preserved.
+- The working tree contains unstaged Phase 4 frontend, script, environment-example, ignore, and documentation changes.
+- `client/.env.local`, the real SQLite database, virtual environment, caches, bytecode, backups, and `server/*.egg-info/` are ignored.
+- No `server/*.egg-info` directory is present.
+- No commit, stage, push, pull, merge, rebase, branch change, or remote change occurred.
+- Phase 5 was not started.

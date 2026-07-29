@@ -8,7 +8,7 @@ export default function Loading() {
         <div className="mx-auto mt-6 h-2 w-48 overflow-hidden rounded-full bg-white">
           <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--saffron)]" />
         </div>
-        <p className="mt-3 text-sm text-[var(--slate)]">Preparing the local demonstration workspace…</p>
+        <p className="mt-3 text-sm text-[var(--slate)]">Preparing the LegalBridge workspace…</p>
       </div>
     </main>
   );

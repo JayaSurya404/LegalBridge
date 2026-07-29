@@ -1,6 +1,6 @@
 "use client";
 
-import { BriefcaseBusiness, Plus, Search } from "lucide-react";
+import { BriefcaseBusiness, Plus, RefreshCw, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -8,11 +8,14 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useAppStore } from "@/stores/app-store";
 
 export function CasesPage() {
   const cases = useAppStore((state) => state.cases);
+  const workspaceLoading = useAppStore((state) => state.workspaceLoading);
+  const workspaceError = useAppStore((state) => state.workspaceError);
+  const refreshWorkspace = useAppStore((state) => state.refreshWorkspace);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [review, setReview] = useState("all");
@@ -39,13 +42,31 @@ export function CasesPage() {
       <PageHeader
         eyebrow="Case management"
         title="Cases"
-        description="Search the preloaded synthetic matter or create a browser-local demonstration case."
+        description="Search organisation-scoped cases persisted by FastAPI. Only the designated demonstration case carries closed synthetic analysis."
         actions={
-          <Link href="/cases/new" className={buttonVariants()}>
-            <Plus className="size-4" aria-hidden="true" /> New case
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              disabled={workspaceLoading}
+              onClick={() => void refreshWorkspace()}
+            >
+              <RefreshCw
+                className={`size-4 ${workspaceLoading ? "animate-spin" : ""}`}
+                aria-hidden="true"
+              />
+              Refresh
+            </Button>
+            <Link href="/cases/new" className={buttonVariants()}>
+              <Plus className="size-4" aria-hidden="true" /> New case
+            </Link>
+          </div>
         }
       />
+      {workspaceError && (
+        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900" role="alert">
+          {workspaceError}
+        </div>
+      )}
       <Card className="mb-5">
         <CardContent className="grid gap-3 pt-5 md:grid-cols-[1fr_12rem_12rem]">
           <label className="relative">
@@ -59,6 +80,8 @@ export function CasesPage() {
               <option value="all">All case statuses</option>
               <option value="active">Active</option>
               <option value="draft">Draft</option>
+              <option value="review">Review</option>
+              <option value="closed">Closed</option>
               <option value="archived">Archived</option>
             </select>
           </label>
@@ -77,7 +100,7 @@ export function CasesPage() {
       {filtered.length === 0 ? (
         <EmptyState
           title="No cases match these filters"
-          description="Clear the search and filters, or create a new synthetic demonstration case."
+          description="Clear the search and filters, refresh the backend, or create a new synthetic-safe case record."
           action={<button type="button" className={buttonVariants({ variant: "secondary" })} onClick={() => { setSearch(""); setStatus("all"); setReview("all"); }}>Clear filters</button>}
         />
       ) : (

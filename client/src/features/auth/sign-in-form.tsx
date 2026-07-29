@@ -12,8 +12,17 @@ import { Input } from "@/components/ui/input";
 import { useAppStore } from "@/stores/app-store";
 
 const signInSchema = z.object({
+  organizationSlug: z
+    .string()
+    .trim()
+    .min(2, "Enter the organisation workspace slug.")
+    .max(100)
+    .regex(
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      "Use lowercase letters, numbers, and hyphens.",
+    ),
   email: z.email("Enter a valid email address."),
-  password: z.string().min(8, "Enter the demonstration password."),
+  password: z.string().min(12, "Enter a password of at least 12 characters."),
 });
 
 type SignInValues = z.infer<typeof signInSchema>;
@@ -21,7 +30,7 @@ type SignInValues = z.infer<typeof signInSchema>;
 export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const signIn = useAppStore((state) => state.signIn);
+  const authenticate = useAppStore((state) => state.authenticate);
   const [showPassword, setShowPassword] = useState(false);
   const {
     register,
@@ -31,28 +40,51 @@ export function SignInForm() {
     formState: { errors, isSubmitting },
   } = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: {
+      organizationSlug: "legalbridge-demo",
+      email: "",
+      password: "",
+    },
   });
 
   const onSubmit = async (values: SignInValues) => {
-    await new Promise((resolve) => window.setTimeout(resolve, 350));
-    if (!signIn(values.email, values.password)) {
+    const result = await authenticate(values);
+    if (!result.ok) {
       setError("root", {
-        message: "Those credentials do not match the frontend demonstration account.",
+        message: result.message ?? "Sign-in could not be completed.",
       });
       return;
     }
     const requested = searchParams.get("next");
     const destination =
-      requested?.startsWith("/") && !requested.startsWith("//")
+      requested?.startsWith("/") &&
+      !requested.startsWith("//") &&
+      !requested.includes("\\")
         ? requested
         : "/dashboard";
-    toast.success("Signed in to the browser-local demonstration.");
+    toast.success("Signed in to the LegalBridge development workspace.");
     router.replace(destination);
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+      <div>
+        <label htmlFor="organizationSlug" className="mb-2 block text-sm font-semibold text-[var(--navy)]">
+          Organisation workspace
+        </label>
+        <Input
+          id="organizationSlug"
+          autoComplete="organization"
+          aria-invalid={Boolean(errors.organizationSlug)}
+          aria-describedby={errors.organizationSlug ? "organizationSlug-error" : undefined}
+          {...register("organizationSlug")}
+        />
+        {errors.organizationSlug && (
+          <p id="organizationSlug-error" role="alert" className="mt-2 text-sm text-[var(--red)]">
+            {errors.organizationSlug.message}
+          </p>
+        )}
+      </div>
       <div>
         <label htmlFor="email" className="mb-2 block text-sm font-semibold text-[var(--navy)]">
           Email
@@ -92,18 +124,21 @@ export function SignInForm() {
       )}
       <Button type="submit" className="w-full" disabled={isSubmitting}>
         <KeyRound className="size-4" aria-hidden="true" />
-        {isSubmitting ? "Checking demonstration credentials…" : "Enter Demo Workspace"}
+        {isSubmitting ? "Signing in securely…" : "Enter workspace"}
       </Button>
       <Button
         type="button"
         variant="ghost"
         className="w-full"
         onClick={() => {
+          setValue("organizationSlug", "legalbridge-demo", {
+            shouldValidate: true,
+          });
           setValue("email", "attorney@legalbridge.demo", { shouldValidate: true });
           setValue("password", "LegalBridge@2026", { shouldValidate: true });
         }}
       >
-        Fill demo credentials
+        Fill attorney demo credentials
       </Button>
     </form>
   );

@@ -30,12 +30,14 @@ export function SettingsPage() {
       <PageHeader
         eyebrow="Browser-local preferences"
         title="Settings"
-        description="Adjust display behaviour and safely restore the original synthetic demonstration workspace."
+        description="Adjust browser display behaviour and safely restore the closed synthetic analysis fixture."
         actions={
           <ConfirmDialog
             trigger={<Button variant="danger"><RotateCcw className="size-4" aria-hidden="true" /> Reset demo workspace</Button>}
-            title="Reset the entire demo workspace?"
-            description="This clears browser-local cases, workflows, document metadata, motion drafts, approvals, and audit events, then restores the original synthetic property case. Authentication remains active."
+            title="Reset local demonstration analysis?"
+            description={publicEnv.dataMode === "http"
+              ? "This resets the local workflow, draft, approval, and analysis fixtures for the designated synthetic matter. Backend cases, document metadata, audit events, and authentication remain intact."
+              : "This clears browser-local cases, workflows, document metadata, motion drafts, approvals, and audit events, then restores the original synthetic property case. Authentication remains active."}
             confirmLabel="Reset and restore demo"
             destructive
             onConfirm={() => {
@@ -83,14 +85,20 @@ export function SettingsPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Frontend data mode</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Workspace data mode</CardTitle></CardHeader>
             <CardContent>
               <div className="flex flex-col gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
                   <Database className="mt-0.5 size-5 shrink-0 text-emerald-700" aria-hidden="true" />
                   <div>
-                    <p className="font-semibold text-emerald-950">Deterministic mock provider</p>
-                    <p className="mt-1 text-sm leading-6 text-emerald-900">NEXT_PUBLIC_DATA_MODE defaults safely to mock. No endpoint or external service is called.</p>
+                    <p className="font-semibold text-emerald-950">
+                      {publicEnv.dataMode === "http" ? "FastAPI persistence provider" : "Deterministic mock provider"}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-emerald-900">
+                      {publicEnv.dataMode === "http"
+                        ? "Authentication, cases, document metadata, and audit events use the configured backend. Synthetic legal-analysis fixtures remain explicitly separate."
+                        : "No endpoint or external service is called. The workspace remains a browser-local demonstration."}
+                    </p>
                   </div>
                 </div>
                 <StatusBadge status={publicEnv.dataMode ?? "configuration error"} />
@@ -101,10 +109,10 @@ export function SettingsPage() {
 
         <div className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Local storage explanation</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Browser storage explanation</CardTitle></CardHeader>
             <CardContent className="space-y-4 text-sm leading-6 text-[var(--slate)]">
-              <p>Versioned Zustand state retains demo authentication, case records, workflow progress, document metadata, drafts, approvals, settings, and audit events.</p>
-              <p>Raw file contents, passwords, review PINs, secrets, and real legal documents are not stored.</p>
+              <p>Authentication tokens and the verified user are retained only in sessionStorage. Versioned Zustand localStorage retains display preferences and synthetic workflow, draft, approval, and analysis state.</p>
+              <p>Backend case records, document metadata, and audit events are refreshed from FastAPI. Raw file contents, passwords, review PINs, secrets, and real legal documents are not stored by the frontend.</p>
               <p>Browser-local persistence is not trusted as a security boundary and can be cleared by the browser or reset action.</p>
             </CardContent>
           </Card>
@@ -117,7 +125,7 @@ export function SettingsPage() {
               </div>
             </CardHeader>
             <CardContent className="text-sm leading-6 text-[var(--slate)]">
-              <p>No backend, database, cloud storage, authentication service, OCR, legal corpus, citation verification service, or automatic filing capability exists in this checkpoint.</p>
+              <p>FastAPI authentication and SQLite-backed case, document-metadata, and audit persistence are active. No binary or cloud storage, OCR, document parsing, backend agent execution, legal corpus, citation verification service, or automatic filing capability exists in this checkpoint.</p>
               <p className="mt-3 font-semibold text-[var(--navy)]">All legal outputs require attorney review and independent verification.</p>
             </CardContent>
           </Card>
