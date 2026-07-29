@@ -26,7 +26,7 @@ import { useAppStore } from "@/stores/app-store";
 
 const moduleLinks = [
   ["Documents", "Review stored originals and source pages", "/documents", FileStack],
-  ["Workflow", "Run the 15-agent simulation", "/workflow", Activity],
+  ["Workflow", "Inspect the 13-agent persisted analysis", "/workflow", Activity],
   ["Timeline", "Inspect source-linked events", "/timeline", ScrollText],
   ["Contradictions", "Compare material statements", "/contradictions", GitCompareArrows],
   ["Procedural audit", "Review potential concerns", "/procedural-audit", Gavel],

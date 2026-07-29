@@ -92,6 +92,8 @@ class Settings(BaseSettings):
     extraction_text_limit: int = Field(default=2_000_000, ge=10_000)
     extraction_page_text_limit: int = Field(default=200_000, ge=1_000)
     extraction_max_pages: int = Field(default=1_000, ge=1, le=10_000)
+    analysis_provider: Literal["deterministic", "future_ai"] = "deterministic"
+    review_pin: str = Field(default="2026", min_length=4)
 
     @field_validator("api_v1_prefix")
     @classmethod

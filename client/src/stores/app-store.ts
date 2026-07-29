@@ -10,6 +10,7 @@ import {
 } from "@/lib/demo/seed";
 import type {
   BackendDashboardSummary,
+  BackendAnalysisSummary,
   BackendDocumentDetail,
   BackendDocumentMetadataCreate,
 } from "@/lib/api/backend-types";
@@ -19,6 +20,7 @@ import {
 } from "@/lib/api/client";
 import {
   BACKEND_DEMO_CASE_NUMBER,
+  applyBackendAnalysis,
   mapBackendCase,
   mapBackendDocument,
   mapBackendUser,
@@ -50,6 +52,7 @@ interface AppState {
   workspaceReady: boolean;
   workspaceError: string | null;
   dashboardSummary: BackendDashboardSummary | null;
+  analysisSummaries: Record<string, BackendAnalysisSummary>;
   selectedCaseId: string;
   cases: CaseRecord[];
   auditEvents: AuditEvent[];
@@ -64,6 +67,36 @@ interface AppState {
   logout: () => Promise<void>;
   clearSession: () => void;
   refreshWorkspace: () => Promise<void>;
+  refreshAnalysis: (caseId: string) => Promise<void>;
+  runPersistentAnalysis: (caseId: string) => Promise<void>;
+  createPersistentCopilotThread: (caseId: string) => Promise<string>;
+  sendPersistentCopilotMessage: (
+    caseId: string,
+    threadId: string,
+    content: string,
+  ) => Promise<void>;
+  savePersistentMotion: (
+    caseId: string,
+    motionId: string,
+    body: string,
+  ) => Promise<void>;
+  runPersistentMotionAction: (
+    caseId: string,
+    motionId: string,
+    action: "citation-check" | "ethics-check" | "submit-review",
+  ) => Promise<void>;
+  reviewPersistentMotion: (
+    caseId: string,
+    motionId: string,
+    decision: "changes_requested" | "approved" | "rejected",
+    comments: string,
+    pin: string,
+  ) => Promise<void>;
+  exportPersistentMotion: (
+    caseId: string,
+    motionId: string,
+    format: "pdf" | "docx",
+  ) => Promise<Blob>;
   createPersistentCase: (input: NewCaseInput) => Promise<string>;
   syncDocuments: (caseId: string) => Promise<void>;
   registerDocumentMetadata: (
@@ -242,6 +275,7 @@ export const useAppStore = create<AppState>()(
       workspaceReady: false,
       workspaceError: null,
       dashboardSummary: null,
+      analysisSummaries: {},
       selectedCaseId: DEMO_CASE_ID,
       cases: [freshSeedCase()],
       auditEvents: structuredClone(seedAuditEvents),
@@ -333,14 +367,18 @@ export const useAppStore = create<AppState>()(
             legalBridgeClient.listCases(),
             legalBridgeClient.getDashboardSummary(),
           ]);
-          const documentSets = await Promise.all(
+          const dataSets = await Promise.all(
             backendCases.map(async (backendCase) => ({
               caseId: backendCase.id,
               documents: await legalBridgeClient.listDocuments(backendCase.id),
+              analysis: await legalBridgeClient.getAnalysisSummary(backendCase.id),
             })),
           );
           const documentsByCase = new Map(
-            documentSets.map((entry) => [entry.caseId, entry.documents]),
+            dataSets.map((entry) => [entry.caseId, entry.documents]),
+          );
+          const analysisByCase = new Map(
+            dataSets.map((entry) => [entry.caseId, entry.analysis]),
           );
           set((state) => {
             const mapped = backendCases.map((backendCase) => {
@@ -353,13 +391,26 @@ export const useAppStore = create<AppState>()(
                       record.reference === seedCase.reference)),
               );
               const mappedCase = mapBackendCase(backendCase, existing);
-              return {
+              return applyBackendAnalysis({
                 ...mappedCase,
                 documents: mergeBackendDocuments(
                   mappedCase,
                   documentsByCase.get(backendCase.id) ?? [],
                 ),
-              };
+              }, analysisByCase.get(backendCase.id) ?? {
+                analysis_run: null,
+                agents: [],
+                facts: [],
+                timeline: [],
+                contradictions: [],
+                procedural_findings: [],
+                research: [],
+                strategies: [],
+                ethics_findings: [],
+                motions: [],
+                copilot_threads: [],
+                counts: {},
+              });
             });
             const demo = mapped.find(
               (record) => record.reference === BACKEND_DEMO_CASE_NUMBER,
@@ -392,6 +443,7 @@ export const useAppStore = create<AppState>()(
               cases: mapped,
               auditEvents,
               dashboardSummary,
+              analysisSummaries: Object.fromEntries(analysisByCase),
               selectedCaseId,
               workspaceLoading: false,
               workspaceReady: true,
@@ -414,6 +466,64 @@ export const useAppStore = create<AppState>()(
           });
         }
       },
+      refreshAnalysis: async (caseId) => {
+        if (publicEnv.dataMode === "mock") return;
+        const summary = await legalBridgeClient.getAnalysisSummary(caseId);
+        set((state) => ({
+          analysisSummaries: {
+            ...state.analysisSummaries,
+            [caseId]: summary,
+          },
+          cases: updateCase(state.cases, caseId, (record) =>
+            applyBackendAnalysis(record, summary),
+          ),
+        }));
+      },
+      runPersistentAnalysis: async (caseId) => {
+        await legalBridgeClient.runAnalysis(caseId);
+        await get().refreshAnalysis(caseId);
+        await get().syncAuditEvents(caseId);
+      },
+      createPersistentCopilotThread: async (caseId) => {
+        const thread = await legalBridgeClient.createCopilotThread(
+          caseId,
+          "Case source review",
+        );
+        await get().refreshAnalysis(caseId);
+        return thread.id;
+      },
+      sendPersistentCopilotMessage: async (caseId, threadId, content) => {
+        await legalBridgeClient.sendCopilotMessage(caseId, threadId, content);
+        await get().refreshAnalysis(caseId);
+      },
+      savePersistentMotion: async (caseId, motionId, body) => {
+        await legalBridgeClient.createMotionVersion(caseId, motionId, body);
+        await get().refreshAnalysis(caseId);
+      },
+      runPersistentMotionAction: async (caseId, motionId, action) => {
+        await legalBridgeClient.runMotionAction(caseId, motionId, action);
+        await get().refreshAnalysis(caseId);
+        await get().syncAuditEvents(caseId);
+      },
+      reviewPersistentMotion: async (
+        caseId,
+        motionId,
+        decision,
+        comments,
+        pin,
+      ) => {
+        await legalBridgeClient.reviewMotion(
+          caseId,
+          motionId,
+          decision,
+          comments,
+          pin,
+        );
+        await get().refreshAnalysis(caseId);
+        await get().syncAuditEvents(caseId);
+      },
+      exportPersistentMotion: (caseId, motionId, format) =>
+        legalBridgeClient.exportMotion(caseId, motionId, format),
       createPersistentCase: async (input) => {
         if (publicEnv.dataMode === "mock") return get().createCase(input);
         const user = get().currentUser;

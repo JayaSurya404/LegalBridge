@@ -1,5 +1,24 @@
 """Phase 3 SQLAlchemy models."""
 
+from app.models.analysis import (
+    AgentRun,
+    AnalysisRun,
+    AttorneyReview,
+    AuthorityChunk,
+    CaseFact,
+    CitationCheckRecord,
+    ContradictionRecord,
+    CopilotMessage,
+    CopilotThread,
+    EthicsFinding,
+    LegalAuthority,
+    MotionDraft,
+    MotionVersion,
+    ProceduralFinding,
+    ResearchResult,
+    StrategyRecommendation,
+    TimelineEventRecord,
+)
 from app.models.audit import AuditEvent
 from app.models.auth_session import AuthSession
 from app.models.case import LegalCase
@@ -11,12 +30,29 @@ from app.models.user import User
 
 __all__ = [
     "AuditEvent",
+    "AgentRun",
+    "AnalysisRun",
+    "AttorneyReview",
+    "AuthorityChunk",
     "AuthSession",
     "CaseStatus",
+    "CaseFact",
+    "CitationCheckRecord",
+    "ContradictionRecord",
+    "CopilotMessage",
+    "CopilotThread",
     "DocumentRecord",
     "DocumentPage",
+    "EthicsFinding",
     "LegalCase",
+    "LegalAuthority",
+    "MotionDraft",
+    "MotionVersion",
     "Organization",
+    "ProceduralFinding",
+    "ResearchResult",
+    "StrategyRecommendation",
+    "TimelineEventRecord",
     "User",
     "UserRole",
 ]

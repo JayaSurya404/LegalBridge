@@ -1,213 +1,170 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  CheckCircle2,
-  Circle,
-  FileCheck2,
-  KeyRound,
-  LockKeyhole,
-  Printer,
-  UserCheck,
-} from "lucide-react";
-import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { FileCheck2, KeyRound, LockKeyhole } from "lucide-react";
+import { FormEvent, useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
 import { CasePage } from "@/components/shared/case-page";
-import { SourceChip } from "@/components/shared/status";
+import { StatusBadge } from "@/components/shared/status";
 import { UnknownCase } from "@/components/shared/unknown-case";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { CitationFirewall } from "@/features/citations/citation-firewall";
+import { Textarea } from "@/components/ui/textarea";
 import { useCaseRecord } from "@/lib/hooks/use-case-record";
-import { getMotionGateStatus } from "@/lib/motion-gate";
 import { useAppStore } from "@/stores/app-store";
 
-const schema = z.object({
-  reviewerName: z.string().trim().min(2, "Enter the reviewing attorney’s name."),
-  pin: z.string().regex(/^2026$/, "Enter the demonstration PIN 2026."),
-  confirmed: z.boolean().refine((value) => value, "Confirm responsibility for final legal review."),
-});
-
-type Values = z.infer<typeof schema>;
+type Decision = "changes_requested" | "approved" | "rejected";
 
 export function ReviewPage() {
   const { caseId, record } = useCaseRecord();
-  const approveMotion = useAppStore((state) => state.approveMotion);
-  const recordExport = useAppStore((state) => state.recordExport);
-  const {
-    register,
-    handleSubmit,
-    setError,
-    formState: { errors, isSubmitting },
-  } = useForm<Values>({
-    resolver: zodResolver(schema),
-    defaultValues: { reviewerName: "", pin: "", confirmed: false },
-  });
+  const summary = useAppStore((state) => state.analysisSummaries[caseId]);
+  const reviewMotion = useAppStore((state) => state.reviewPersistentMotion);
+  const motion = summary?.motions[0];
+  const [decision, setDecision] = useState<Decision>("approved");
+  const [comments, setComments] = useState("");
+  const [pin, setPin] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   if (!record) return <UnknownCase />;
-  const gate = getMotionGateStatus(record);
-  const current = gate.currentVersion;
-  const unlocked = gate.exportUnlocked;
-  const conditions = [
-    ["Motion draft exists", gate.motionExists],
-    ["Current motion version and mock hash match", gate.savedMotionMatches],
-    ["9 of 9 synthetic citation records pass", gate.metrics.allCitationChecksPass],
-    ["Required unsupported argument is rejected", gate.ethicsRejectionApplied],
-    ["Every ethics decision is resolved", gate.ethicsReviewResolved],
-    ["No blocked, rejected, or unresolved strategy is included", gate.unsafeStrategyExcluded],
-    ["Rejected argument is absent from the saved motion", gate.rejectedArgumentAbsent],
-  ] as const;
 
-  const submit = (values: Values) => {
-    const result = approveMotion(caseId, values.reviewerName, values.pin, values.confirmed);
-    if (!result.ok) {
-      setError("root", { message: result.message });
-      return;
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!motion || comments.trim().length < 3 || pin.length < 4) return;
+    setSubmitting(true);
+    try {
+      await reviewMotion(
+        caseId,
+        motion.id,
+        decision,
+        comments.trim(),
+        pin,
+      );
+      setComments("");
+      setPin("");
+      toast.success("Internal demonstration review persisted.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Review failed.");
+    } finally {
+      setSubmitting(false);
     }
-    toast.success(result.message);
-  };
-
-  const print = () => {
-    if (!recordExport(caseId)) {
-      toast.error("The current motion version is not approved.");
-      return;
-    }
-    toast.success("Opening the browser print view. No court filing occurs.");
-    window.setTimeout(() => window.print(), 100);
   };
 
   return (
     <CasePage
       caseId={caseId}
       eyebrow={record.reference}
-      title="Attorney review gate"
-      description="Approval records professional responsibility for the exact saved motion version and deterministic mock hash. The demo PIN is not security."
-      actions={unlocked ? <Button onClick={print}><Printer className="size-4" aria-hidden="true" /> Print or Save as PDF</Button> : undefined}
+      title="Attorney review"
+      description="Review decisions are verified by the backend and bound to the current persisted motion version."
     >
-      <div className={`mb-6 flex items-start gap-3 rounded-xl border p-5 ${unlocked ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-amber-200 bg-amber-50 text-amber-950"}`} aria-live="polite">
-        {unlocked ? <UserCheck className="mt-0.5 size-6 shrink-0" aria-hidden="true" /> : <LockKeyhole className="mt-0.5 size-6 shrink-0" aria-hidden="true" />}
-        <div>
-          <h2 className="font-serif text-xl font-semibold">{unlocked ? "Approved version — export unlocked" : "Pending attorney review — export locked"}</h2>
-          <p className="mt-1 text-sm leading-6">
-            {unlocked
-              ? "Browser print is enabled only for the approved version. Any saved edit invalidates this approval."
-              : record.approval
-                ? "The stored approval no longer satisfies the current export gate. Complete the blocked preconditions and approve again."
-                : "Complete every precondition, enter the named reviewer, use demo PIN 2026, and accept responsibility for final legal review."}
-          </p>
-        </div>
-      </div>
+      <Card className="mb-6 border-amber-200 bg-amber-50">
+        <CardContent className="flex items-start gap-3 p-5 text-amber-950">
+          <LockKeyhole className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+          <div>
+            <p className="font-semibold">
+              Internal demonstration approval — not a court signature.
+            </p>
+            <p className="mt-1 text-sm leading-6">
+              Attorney verification is required. Approval does not file anything
+              and no automatic court-filing action exists.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[.8fr_1.2fr]">
-        <div className="space-y-6">
+      {!motion ? (
+        <Card>
+          <CardContent className="p-6 text-sm text-[var(--slate)]">
+            No motion is available for review. Run analysis first.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6 xl:grid-cols-[1fr_.9fr]">
           <Card>
-            <CardHeader><CardTitle>Approval preconditions</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              {conditions.map(([label, passed]) => (
-                <div key={label} className={`flex items-center gap-3 rounded-xl border p-3 text-sm ${passed ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-amber-200 bg-amber-50 text-amber-950"}`}>
-                  {passed ? <CheckCircle2 className="size-5 shrink-0" aria-hidden="true" /> : <Circle className="size-5 shrink-0" aria-hidden="true" />}
-                  <span className="font-semibold">{label}</span>
-                </div>
+            <CardHeader>
+              <CardTitle>Review history</CardTitle>
+              <div className="mt-2">
+                <StatusBadge status={motion.status} />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {motion.reviews.map((review) => (
+                <article key={review.id} className="rounded-xl border p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <StatusBadge status={review.decision} />
+                    <span className="text-xs text-[var(--slate)]">
+                      {new Date(
+                        review.reviewed_at ?? review.created_at,
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm leading-6">{review.comments}</p>
+                  <p className="mt-2 text-xs text-[var(--slate)]">
+                    PIN verified by backend: {review.review_pin_verified ? "Yes" : "No"}
+                  </p>
+                </article>
               ))}
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Version binding</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-[var(--slate)]">Motion version</p>
-                <p className="mt-1 font-serif text-2xl font-semibold text-[var(--navy)]">{current?.version ?? "Not saved"}</p>
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-[var(--slate)]">Deterministic mock version hash</p>
-                <div className="mt-2"><SourceChip>{current?.mockHash ?? "No hash"}</SourceChip></div>
-                <p className="mt-2 text-xs leading-5 text-[var(--slate)]">Reproducible frontend identifier; not a cryptographic signature.</p>
-              </div>
+            <CardHeader>
+              <CardTitle>Record review decision</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={submit} className="space-y-5">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold">Decision</span>
+                  <select
+                    value={decision}
+                    onChange={(event) => setDecision(event.target.value as Decision)}
+                    className="min-h-11 w-full rounded-lg border border-[var(--border-strong)] bg-white px-3 text-sm"
+                  >
+                    <option value="approved">Approve internally</option>
+                    <option value="changes_requested">Request changes</option>
+                    <option value="rejected">Reject</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold">Comments</span>
+                  <Textarea
+                    value={comments}
+                    onChange={(event) => setComments(event.target.value)}
+                    rows={5}
+                    required
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                    <KeyRound className="size-4" aria-hidden="true" /> Review PIN
+                  </span>
+                  <Input
+                    type="password"
+                    inputMode="numeric"
+                    value={pin}
+                    onChange={(event) => setPin(event.target.value)}
+                    autoComplete="off"
+                    required
+                  />
+                  <span className="mt-2 block text-xs text-[var(--slate)]">
+                    The backend validates the development PIN; it is not a digital
+                    signature.
+                  </span>
+                </label>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={
+                    submitting || comments.trim().length < 3 || pin.length < 4
+                  }
+                >
+                  <FileCheck2 className="size-4" aria-hidden="true" />
+                  {submitting ? "Recording…" : "Record internal review"}
+                </Button>
+              </form>
             </CardContent>
           </Card>
         </div>
-
-        <Card>
-          <CardHeader className="border-b border-[var(--border)]">
-            <CardTitle>{unlocked ? "Approval summary" : "Record attorney approval"}</CardTitle>
-            <p className="mt-1 text-sm leading-6 text-[var(--slate)]">This gate demonstrates human responsibility; it is not production identity verification.</p>
-          </CardHeader>
-          <CardContent className="p-5 sm:p-6">
-            {unlocked && record.approval ? (
-              <div>
-                <div className="grid gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 sm:grid-cols-2">
-                  <Meta label="Reviewer" value={record.approval.reviewerName} />
-                  <Meta label="Motion version" value={`Version ${record.approval.version}`} />
-                  <Meta label="Review timestamp" value={record.approval.timestamp} />
-                  <Meta label="Mock version hash" value={record.approval.mockHash} />
-                </div>
-                <p className="mt-5 text-sm leading-6 text-[var(--slate)]">The reviewer acknowledged responsibility for final legal review. This approval does not imply a filing occurred.</p>
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <Button onClick={print}><Printer className="size-4" aria-hidden="true" /> Print or Save as PDF</Button>
-                  <Link href={`/cases/${caseId}/motion`} className={buttonVariants({ variant: "secondary" })}>Return to Motion Studio</Link>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit(submit)} noValidate className="space-y-5">
-                <div>
-                  <label htmlFor="reviewerName" className="mb-2 block text-sm font-semibold text-[var(--navy)]">Reviewing attorney name</label>
-                  <Input id="reviewerName" autoComplete="name" aria-invalid={Boolean(errors.reviewerName)} aria-describedby={errors.reviewerName ? "reviewerName-error" : undefined} {...register("reviewerName")} />
-                  {errors.reviewerName && <p id="reviewerName-error" role="alert" className="mt-2 text-sm text-[var(--red)]">{errors.reviewerName.message}</p>}
-                </div>
-                <div>
-                  <label htmlFor="pin" className="mb-2 block text-sm font-semibold text-[var(--navy)]">Demonstration review PIN</label>
-                  <Input id="pin" type="password" inputMode="numeric" autoComplete="off" maxLength={4} aria-invalid={Boolean(errors.pin)} aria-describedby={errors.pin ? "pin-error pin-help" : "pin-help"} {...register("pin")} />
-                  {errors.pin && <p id="pin-error" role="alert" className="mt-2 text-sm text-[var(--red)]">{errors.pin.message}</p>}
-                  <p id="pin-help" className="mt-2 flex items-center gap-2 text-xs text-[var(--slate)]"><KeyRound className="size-3.5" aria-hidden="true" /> Demo PIN: 2026. It is not stored or treated as authentication.</p>
-                </div>
-                <label className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--cream)] p-4 text-sm leading-6">
-                  <input type="checkbox" aria-invalid={Boolean(errors.confirmed)} aria-describedby={errors.confirmed ? "confirmed-error" : undefined} className="mt-1 size-5 shrink-0 accent-[var(--navy)]" {...register("confirmed")} />
-                  <span>I accept responsibility for verifying every factual and legal proposition, the authentic record, governing law, requested relief, and any decision to file.</span>
-                </label>
-                {errors.confirmed && <p id="confirmed-error" role="alert" className="text-sm text-[var(--red)]">{errors.confirmed.message}</p>}
-                {errors.root && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{errors.root.message}</p>}
-                <Button type="submit" className="w-full" disabled={isSubmitting || conditions.some(([, passed]) => !passed)}>
-                  <FileCheck2 className="size-4" aria-hidden="true" /> {isSubmitting ? "Recording approval…" : "Approve current motion version"}
-                </Button>
-                {conditions.some(([, passed]) => !passed) && <p className="text-center text-xs text-[var(--slate)]">Complete every precondition before approval.</p>}
-              </form>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="mt-8 no-print">
-        <CitationFirewall record={record} compact />
-      </div>
-
-      <article className="print-motion legal-document hidden whitespace-pre-wrap bg-white text-black print:block">
-        <header className="mb-8 border-b border-black pb-5 text-center">
-          <p className="text-sm font-bold">LEGALBRIDGE INDIA · SYNTHETIC HACKATHON OUTPUT</p>
-          <p className="mt-2 text-sm font-bold">DRAFT — NOT REVIEWED FOR FILING</p>
-          <p className="mt-2 text-xs">Not automatically filed · Attorney verification remains required</p>
-        </header>
-        {record.currentMotion}
-        {record.approval && (
-          <footer className="mt-10 border-t border-black pt-5 text-xs leading-6">
-            <p><strong>Reviewed by:</strong> {record.approval.reviewerName}</p>
-            <p><strong>Motion version:</strong> {record.approval.version}</p>
-            <p><strong>Mock version hash:</strong> {record.approval.mockHash}</p>
-            <p><strong>Approval timestamp:</strong> {record.approval.timestamp}</p>
-          </footer>
-        )}
-      </article>
+      )}
     </CasePage>
-  );
-}
-
-function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">{label}</p>
-      <p className="mt-1 break-all text-sm font-semibold text-emerald-950">{value}</p>
-    </div>
   );
 }

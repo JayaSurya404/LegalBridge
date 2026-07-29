@@ -1,4 +1,6 @@
 import type {
+  BackendAnalysisRun,
+  BackendAnalysisSummary,
   BackendAuditEvent,
   BackendCase,
   BackendCaseCreate,
@@ -10,6 +12,8 @@ import type {
   BackendLoginRequest,
   BackendTokenResponse,
   BackendUser,
+  BackendCopilotThread,
+  BackendMotion,
 } from "@/lib/api/backend-types";
 import type { LegalBridgeClient } from "@/lib/api/contracts";
 import { DEMO_CASE_ID, seedCase } from "@/lib/demo/seed";
@@ -359,6 +363,92 @@ export class HttpLegalBridgeClient implements LegalBridgeClient {
       `/api/v1/cases/${encodeURIComponent(caseId)}/audit-events`,
     );
   }
+
+  getAnalysisSummary(caseId: string): Promise<BackendAnalysisSummary> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/analysis-summary`,
+    );
+  }
+
+  runAnalysis(caseId: string): Promise<BackendAnalysisRun> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/analysis-runs`,
+      { method: "POST", body: JSON.stringify({ provider: "deterministic" }) },
+    );
+  }
+
+  createCopilotThread(
+    caseId: string,
+    title: string,
+  ): Promise<BackendCopilotThread> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/copilot/threads`,
+      { method: "POST", body: JSON.stringify({ title }) },
+    );
+  }
+
+  sendCopilotMessage(
+    caseId: string,
+    threadId: string,
+    content: string,
+  ): Promise<{
+    user_message: BackendCopilotThread["messages"][number];
+    assistant_message: BackendCopilotThread["messages"][number];
+  }> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/copilot/threads/${encodeURIComponent(threadId)}/messages`,
+      { method: "POST", body: JSON.stringify({ content }) },
+    );
+  }
+
+  createMotionVersion(
+    caseId: string,
+    motionId: string,
+    renderedText: string,
+  ): Promise<BackendMotion> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/motions/${encodeURIComponent(motionId)}/versions`,
+      { method: "POST", body: JSON.stringify({ rendered_text: renderedText }) },
+    );
+  }
+
+  runMotionAction(
+    caseId: string,
+    motionId: string,
+    action: "citation-check" | "ethics-check" | "submit-review",
+  ): Promise<BackendMotion> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/motions/${encodeURIComponent(motionId)}/${action}`,
+      { method: "POST" },
+    );
+  }
+
+  reviewMotion(
+    caseId: string,
+    motionId: string,
+    decision: "changes_requested" | "approved" | "rejected",
+    comments: string,
+    pin: string,
+  ): Promise<BackendMotion> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/motions/${encodeURIComponent(motionId)}/review`,
+      {
+        method: "POST",
+        body: JSON.stringify({ decision, comments, pin }),
+      },
+    );
+  }
+
+  async exportMotion(
+    caseId: string,
+    motionId: string,
+    format: "pdf" | "docx",
+  ): Promise<Blob> {
+    const response = await this.authenticatedResponse(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/motions/${encodeURIComponent(motionId)}/export/${format}`,
+    );
+    return response.blob();
+  }
 }
 
 const mockUser: BackendUser = {
@@ -515,6 +605,89 @@ export class MockLegalBridgeClient implements LegalBridgeClient {
   async listAuditEvents(): Promise<BackendAuditEvent[]> {
     return [];
   }
+
+  async getAnalysisSummary(): Promise<BackendAnalysisSummary> {
+    return {
+      analysis_run: null,
+      agents: [],
+      facts: [],
+      timeline: [],
+      contradictions: [],
+      procedural_findings: [],
+      research: [],
+      strategies: [],
+      ethics_findings: [],
+      motions: [],
+      copilot_threads: [],
+      counts: {},
+    };
+  }
+
+  runAnalysis(): Promise<BackendAnalysisRun> {
+    throw new BackendApiError(
+      "Persistent analysis requires HTTP data mode.",
+      "SERVER_ERROR",
+      501,
+      "mock_analysis_unavailable",
+    );
+  }
+
+  createCopilotThread(): Promise<BackendCopilotThread> {
+    throw new BackendApiError(
+      "Persistent Copilot requires HTTP data mode.",
+      "SERVER_ERROR",
+      501,
+      "mock_copilot_unavailable",
+    );
+  }
+
+  sendCopilotMessage(): Promise<{
+    user_message: BackendCopilotThread["messages"][number];
+    assistant_message: BackendCopilotThread["messages"][number];
+  }> {
+    throw new BackendApiError(
+      "Persistent Copilot requires HTTP data mode.",
+      "SERVER_ERROR",
+      501,
+      "mock_copilot_unavailable",
+    );
+  }
+
+  createMotionVersion(): Promise<BackendMotion> {
+    throw new BackendApiError(
+      "Persistent motion versions require HTTP data mode.",
+      "SERVER_ERROR",
+      501,
+      "mock_motion_unavailable",
+    );
+  }
+
+  runMotionAction(): Promise<BackendMotion> {
+    throw new BackendApiError(
+      "Persistent motion checks require HTTP data mode.",
+      "SERVER_ERROR",
+      501,
+      "mock_motion_unavailable",
+    );
+  }
+
+  reviewMotion(): Promise<BackendMotion> {
+    throw new BackendApiError(
+      "Persistent review requires HTTP data mode.",
+      "SERVER_ERROR",
+      501,
+      "mock_review_unavailable",
+    );
+  }
+
+  exportMotion(): Promise<Blob> {
+    throw new BackendApiError(
+      "Persistent export requires HTTP data mode.",
+      "SERVER_ERROR",
+      501,
+      "mock_export_unavailable",
+    );
+  }
 }
 
 export function createLegalBridgeClient(): LegalBridgeClient {
@@ -537,4 +710,5 @@ export const queryKeys = {
   case: (caseId: string) => ["cases", caseId] as const,
   documents: (caseId: string) => ["cases", caseId, "documents"] as const,
   audit: (caseId: string) => ["cases", caseId, "audit"] as const,
+  analysis: (caseId: string) => ["cases", caseId, "analysis"] as const,
 };

@@ -17,6 +17,7 @@ const modules = [
   ["Motion Studio", "/motion"],
   ["Attorney review", "/review"],
   ["Audit log", "/audit-log"],
+  ["Legal Copilot", "/copilot"],
 ] as const;
 
 export function CaseNavigation({ caseId }: { caseId: string }) {
