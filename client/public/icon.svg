@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="LegalBridge India">
+  <rect width="64" height="64" rx="14" fill="#10233f"/>
+  <path d="M14 43h36M18 43V28m28 15V28M18 31c7-10 21-10 28 0M24 43V33m16 10V33" fill="none" stroke="#f4b04d" stroke-width="4" stroke-linecap="round"/>
+  <path d="M27 19h10" stroke="#f7f2e8" stroke-width="4" stroke-linecap="round"/>
+</svg>

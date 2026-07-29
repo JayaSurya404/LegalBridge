@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+:root {
+  --navy: #10233f;
+  --navy-2: #183657;
+  --ink: #1c2735;
+  --cream: #f7f2e8;
+  --warm-white: #fcfaf6;
+  --saffron: #e5972d;
+  --saffron-dark: #9c5e13;
+  --green: #35755a;
+  --amber: #a86614;
+  --red: #a63b3c;
+  --slate: #617084;
+  --border: #dde2e7;
+  --border-strong: #b8c1cc;
+  --focus: #b56f16;
+  --focus-soft: rgb(229 151 45 / 0.2);
+  --shadow: 0 8px 26px rgb(16 35 63 / 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--warm-white);
+  color: var(--ink);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 90% 0%, rgb(229 151 45 / 0.07), transparent 26rem),
+    var(--warm-white);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.font-serif {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.skip-link {
+  position: fixed;
+  left: 1rem;
+  top: -5rem;
+  z-index: 100;
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.75rem 1rem;
+  color: var(--navy);
+  box-shadow: var(--shadow);
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+::selection {
+  background: rgb(229 151 45 / 0.25);
+}
+
+[data-density="compact"] .density-card {
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+
+[data-reduce-motion="true"] *,
+[data-reduce-motion="true"] *::before,
+[data-reduce-motion="true"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.legal-document {
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.8;
+}
+
+.watermark {
+  background-image: repeating-linear-gradient(
+    -32deg,
+    transparent,
+    transparent 80px,
+    rgb(166 59 60 / 0.035) 81px,
+    rgb(166 59 60 / 0.035) 148px
+  );
+}
+
+@media print {
+  @page {
+    margin: 18mm;
+  }
+
+  body {
+    background: white;
+  }
+
+  .no-print,
+  nav,
+  aside[aria-label="Primary navigation"],
+  header[aria-label="Workspace toolbar"] {
+    display: none !important;
+  }
+
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-motion {
+    border: 0 !important;
+    box-shadow: none !important;
+    max-width: none !important;
+  }
+}

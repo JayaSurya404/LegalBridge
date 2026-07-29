@@ -1,0 +1,492 @@
+import type {
+  AuditEvent,
+  Authority,
+  CaseRecord,
+  CitationCheck,
+  Contradiction,
+  DocumentMeta,
+  EthicsArgument,
+  ProceduralFinding,
+  Strategy,
+  TimelineEvent,
+  WorkflowNode,
+} from "@/lib/types/domain";
+import { stableHash } from "@/lib/utils";
+
+export const DEMO_CASE_ID = "case-synthetic-property-001";
+
+export const agentDefinitions: Omit<WorkflowNode, "status">[] = [
+  ["agent-intake", "Case Intake Agent", "Normalises the synthetic case brief.", "Case metadata and document inventory", "Case profile normalised; eight source records indexed.", ["FIR-DEMO-01"]],
+  ["agent-classify", "Document Classification Agent", "Classifies selected source records.", "Eight browser-local document records", "Complaint, memo, diary, statement, transcript, and production records classified.", ["FIR-DEMO-01", "ARREST-DEMO-01"]],
+  ["agent-transcript", "Transcript Parsing Agent", "Segments the demonstration transcript.", "Transcript extract", "Four speaker turns and three demonstration spans identified.", ["TRANSCRIPT-DEMO-01"]],
+  ["agent-facts", "Fact Extraction Agent", "Creates source-linked observations.", "Classified source spans", "Twenty-four source-linked observations created.", ["FIR-DEMO-01", "WITNESS-DEMO-A"]],
+  ["agent-timeline", "Timeline Reconstruction Agent", "Orders events and flags time conflicts.", "Source-linked observations", "Six timeline events reconstructed; one arrest-time conflict flagged.", ["ARREST-DEMO-01", "DIARY-DEMO-01"]],
+  ["agent-contradictions", "Contradiction Detection Agent", "Compares material statements.", "Timeline and facts", "Three contradictions retained for attorney review.", ["SEIZURE-DEMO-01", "WITNESS-DEMO-B"]],
+  ["agent-procedure", "Procedural Audit Agent", "Screens for potential procedural concerns.", "Facts and contradictions", "Four demonstration-only concerns require attorney verification.", ["PRODUCTION-DEMO-01"]],
+  ["agent-statutes", "Statutory Research Agent", "Retrieves closed synthetic statutory records.", "Potential concerns", "Two demonstration statutes retrieved.", ["STAT-0001", "STAT-0002"]],
+  ["agent-precedents", "Precedent Retrieval Agent", "Retrieves closed synthetic precedent records.", "Research propositions", "Three demonstration precedents retrieved.", ["AUTH-0001", "AUTH-0002", "AUTH-0003"]],
+  ["agent-applicability", "Precedent Applicability Agent", "Compares fictional facts and authority records.", "Five demonstration authorities", "Applicability notes completed with distinguishing facts.", ["AUTH-0001", "AUTH-0003"]],
+  ["agent-strategy", "Motion Strategy Agent", "Builds candidate defence strategies.", "Findings and authorities", "Four strategies created; one high-risk claim awaits ethics review.", ["STRAT-01", "STRAT-04"]],
+  ["agent-ethics", "Ethics Auditor Agent", "Checks support and responsible phrasing.", "Candidate strategies", "Unsupported fabrication allegation marked for required rejection.", ["ETH-ARG-04"]],
+  ["agent-motion", "Motion Drafting Agent", "Builds an attorney-review draft.", "Ethics-filtered strategies", "Version 1 draft assembled without the unsupported allegation.", ["MOTION-V1"]],
+  ["agent-citations", "Citation Verification Agent", "Runs the synthetic Citation Firewall.", "Draft propositions and closed records", "Nine of nine demonstration citations pass synthetic checks.", ["CIT-01", "CIT-09"]],
+  ["agent-review", "Attorney Review Coordinator", "Stops autonomy at the attorney gate.", "Draft and verification status", "Motion held for named attorney review; export remains locked.", ["REVIEW-GATE"]],
+].map(([id, name, description, input, output, sourceRefs], index) => ({
+  id: id as string,
+  name: name as string,
+  description: description as string,
+  durationMs: 850 + index * 75,
+  input: input as string,
+  output: output as string,
+  sourceRefs: sourceRefs as string[],
+}));
+
+const documents: DocumentMeta[] = [
+  ["doc-01", "Synthetic_Complaint_Report.pdf", "PDF", "application/pdf", 184000, 3, "Complaint-style report", "FIR-DEMO-01"],
+  ["doc-02", "Synthetic_Arrest_Memo.pdf", "PDF", "application/pdf", 92000, 2, "Arrest memo", "ARREST-DEMO-01"],
+  ["doc-03", "Synthetic_Station_Diary.txt", "TXT", "text/plain", 12400, 1, "Station diary extract", "DIARY-DEMO-01"],
+  ["doc-04", "Synthetic_Seizure_Memo.docx", "DOCX", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 76000, 2, "Seizure memo", "SEIZURE-DEMO-01"],
+  ["doc-05", "Synthetic_Witness_A.txt", "TXT", "text/plain", 8600, 1, "Witness statement A", "WITNESS-DEMO-A"],
+  ["doc-06", "Synthetic_Witness_B.txt", "TXT", "text/plain", 9100, 1, "Witness statement B", "WITNESS-DEMO-B"],
+  ["doc-07", "Synthetic_Transcript_Extract.pdf", "PDF", "application/pdf", 131000, 4, "Transcript extract", "TRANSCRIPT-DEMO-01"],
+  ["doc-08", "Synthetic_Production_Record.pdf", "PDF", "application/pdf", 61000, 1, "Magistrate-production record", "PRODUCTION-DEMO-01"],
+].map(([id, name, type, mimeType, size, pages, sourceLabel, sourceId]) => ({
+  id: id as string,
+  name: name as string,
+  type: type as DocumentMeta["type"],
+  mimeType: mimeType as string,
+  size: size as number,
+  pages: pages as number,
+  status: "processed",
+  addedAt: "2026-01-18T10:00:00.000Z",
+  sourceLabel: `${sourceLabel as string} · ${sourceId as string}`,
+}));
+
+const timeline: TimelineEvent[] = [
+  {
+    id: "time-01",
+    timestamp: "2026-01-18T08:35:00.000Z",
+    title: "Property complaint recorded",
+    detail: "A fictional complaint concerning disputed property papers was recorded.",
+    confidence: 96,
+    source: "FIR-DEMO-01",
+    location: "Page 1 · paragraph 2",
+    excerpt: "At 08:35, the reporting person submitted a statement concerning the disputed registry papers.",
+    verified: true,
+  },
+  {
+    id: "time-02",
+    timestamp: "2026-01-18T17:40:00.000Z",
+    title: "Arrest time recorded in memo",
+    detail: "The arrest memo records 17:40.",
+    confidence: 98,
+    source: "ARREST-DEMO-01",
+    location: "Page 1 · field 7",
+    excerpt: "Time of arrest: 17:40 on 18 January 2026.",
+    verified: true,
+    conflict: "DIARY-DEMO-01 records custody at 16:55.",
+  },
+  {
+    id: "time-03",
+    timestamp: "2026-01-18T16:55:00.000Z",
+    title: "Custody entry recorded in diary",
+    detail: "The station diary records arrival in custody forty-five minutes earlier.",
+    confidence: 94,
+    source: "DIARY-DEMO-01",
+    location: "Entry 42",
+    excerpt: "The accused person was brought to the station at 16:55.",
+    verified: true,
+    conflict: "ARREST-DEMO-01 records arrest at 17:40.",
+  },
+  {
+    id: "time-04",
+    timestamp: "2026-01-18T19:10:00.000Z",
+    title: "Seizure documented",
+    detail: "The memo timestamp follows a witness account that describes an earlier sealed packet.",
+    confidence: 88,
+    source: "SEIZURE-DEMO-01",
+    location: "Page 2 · paragraph 1",
+    excerpt: "The document packet was listed and sealed at 19:10.",
+    verified: true,
+    conflict: "WITNESS-DEMO-A describes the packet as sealed at 18:30.",
+  },
+  {
+    id: "time-05",
+    timestamp: "2026-01-19T13:05:00.000Z",
+    title: "Production record signed",
+    detail: "The closed demonstration record leaves the start time unclear.",
+    confidence: 82,
+    source: "PRODUCTION-DEMO-01",
+    location: "Page 1 · signature block",
+    excerpt: "Record signed at 13:05; arrival time is not stated.",
+    verified: true,
+  },
+  {
+    id: "time-06",
+    timestamp: "2026-01-20T11:30:00.000Z",
+    title: "Witness statements compared",
+    detail: "Two fictional witnesses describe different locations for the property papers.",
+    confidence: 91,
+    source: "WITNESS-DEMO-A / WITNESS-DEMO-B",
+    location: "Statement A ¶4 / Statement B ¶3",
+    excerpt: "One account places the papers in a desk; the other places them in a vehicle.",
+    verified: true,
+  },
+];
+
+const contradictions: Contradiction[] = [
+  {
+    id: "CONTRA-001",
+    topic: "Arrest time",
+    statementA: "The arrest memo records 17:40.",
+    sourceA: "ARREST-DEMO-01 · page 1",
+    statementB: "The station diary records custody at 16:55.",
+    sourceB: "DIARY-DEMO-01 · entry 42",
+    severity: "high",
+    confidence: 96,
+    significance: "The custody sequence and procedural timeline require attorney verification.",
+    reviewStatus: "pending",
+    resolutionNotes: "Obtain the original station entry and custody register.",
+  },
+  {
+    id: "CONTRA-002",
+    topic: "Seizure chronology",
+    statementA: "The packet was listed and sealed at 19:10.",
+    sourceA: "SEIZURE-DEMO-01 · page 2",
+    statementB: "The witness describes the packet as already sealed at 18:30.",
+    sourceB: "WITNESS-DEMO-A · paragraph 5",
+    severity: "high",
+    confidence: 89,
+    significance: "The sequence may affect the reliability of the recorded recovery narrative.",
+    reviewStatus: "pending",
+    resolutionNotes: "Compare original signatures and property-register timestamps.",
+  },
+  {
+    id: "CONTRA-003",
+    topic: "Location of property papers",
+    statementA: "The papers were seen in a study desk.",
+    sourceA: "WITNESS-DEMO-A · paragraph 4",
+    statementB: "The papers were recovered from a parked vehicle.",
+    sourceB: "WITNESS-DEMO-B · paragraph 3",
+    severity: "medium",
+    confidence: 87,
+    significance: "The fictional accounts do not align on the recovery location.",
+    reviewStatus: "pending",
+    resolutionNotes: "Interview both witnesses and inspect the site sketch.",
+  },
+];
+
+const findings: ProceduralFinding[] = [
+  {
+    id: "FIND-001",
+    issue: "Potential concern: communication of arrest grounds is unclear",
+    rationale: "The closed records contain no contemporaneous acknowledgement showing what was communicated.",
+    sources: ["ARREST-DEMO-01", "TRANSCRIPT-DEMO-01"],
+    missingInformation: "Signed acknowledgement or independent witness account.",
+    confidence: 81,
+    verificationStatus: "review",
+    reviewAction: "Verify the original memo and take client instructions.",
+  },
+  {
+    id: "FIND-002",
+    issue: "Potential concern: magistrate-production timing requires review",
+    rationale: "The production record has a signature time but no arrival time.",
+    sources: ["DIARY-DEMO-01", "PRODUCTION-DEMO-01"],
+    missingInformation: "Court arrival register and remand sheet.",
+    confidence: 74,
+    verificationStatus: "review",
+    reviewAction: "Reconstruct custody and court-arrival times from primary records.",
+  },
+  {
+    id: "FIND-003",
+    issue: "Potential concern: police-confession material may require exclusion analysis",
+    rationale: "A transcript-style extract attributes an inculpatory statement to station questioning.",
+    sources: ["TRANSCRIPT-DEMO-01"],
+    missingInformation: "Full recording context and proof of voluntariness.",
+    confidence: 86,
+    verificationStatus: "review",
+    reviewAction: "Assess admissibility only after reviewing authentic primary material.",
+  },
+  {
+    id: "FIND-004",
+    issue: "Potential concern: seizure chronology is internally inconsistent",
+    rationale: "The seizure memo time conflicts with the fictional witness sequence.",
+    sources: ["SEIZURE-DEMO-01", "WITNESS-DEMO-A"],
+    missingInformation: "Property register, seal log, and original memo metadata.",
+    confidence: 89,
+    verificationStatus: "review",
+    reviewAction: "Test the chain of custody and preserve the inconsistency for review.",
+  },
+];
+
+const authorities: Authority[] = [
+  {
+    id: "STAT-0001",
+    type: "Demonstration statute",
+    title: "Synthetic Custody Safeguards Provision",
+    jurisdiction: "Closed demo jurisdiction",
+    date: "2025-04-01",
+    summary: "Synthetic text requiring clear documentation of custody time and communicated grounds.",
+    passage: "A custody record should state the time, place, and communicated basis in a reviewable form.",
+    sourceStatus: "resolved",
+    applicability: "strong",
+    distinguishingFacts: "The demonstration record lacks an acknowledgement; authentic law has not been checked.",
+    posture: "favourable",
+  },
+  {
+    id: "STAT-0002",
+    type: "Demonstration statute",
+    title: "Synthetic Evidence Reliability Provision",
+    jurisdiction: "Closed demo jurisdiction",
+    date: "2025-04-01",
+    summary: "Synthetic text concerning traceable handling of seized material.",
+    passage: "A proponent should be able to account for material transitions in possession and sealing.",
+    sourceStatus: "resolved",
+    applicability: "moderate",
+    distinguishingFacts: "Only metadata is available in this frontend demonstration.",
+    posture: "neutral",
+  },
+  {
+    id: "AUTH-0001",
+    type: "Demonstration precedent",
+    title: "Synthetic Custody Record Review",
+    jurisdiction: "Fictional Appellate Panel",
+    date: "2024-02-12",
+    summary: "A fictional analysis of inconsistent custody timestamps.",
+    passage: "A material timestamp discrepancy should be explained with primary records before a conclusion is drawn.",
+    sourceStatus: "resolved",
+    applicability: "strong",
+    distinguishingFacts: "The fictional record had a complete custody register; this demo does not.",
+    posture: "favourable",
+  },
+  {
+    id: "AUTH-0002",
+    type: "Demonstration precedent",
+    title: "Synthetic Seizure Sequence Review",
+    jurisdiction: "Fictional Review Bench",
+    date: "2023-09-08",
+    summary: "A fictional authority about documenting changes in control of seized material.",
+    passage: "Unexplained sequence gaps may justify closer examination of reliability, not an automatic conclusion.",
+    sourceStatus: "resolved",
+    applicability: "moderate",
+    distinguishingFacts: "The fictional authority involved physical exhibits, not property papers.",
+    posture: "favourable",
+  },
+  {
+    id: "AUTH-0003",
+    type: "Demonstration precedent",
+    title: "Synthetic Witness Comparison Review",
+    jurisdiction: "Fictional District Appeals Forum",
+    date: "2022-11-21",
+    summary: "A fictional authority on material and immaterial witness differences.",
+    passage: "The reviewer should connect each discrepancy to a material proposition and test alternative explanations.",
+    sourceStatus: "resolved",
+    applicability: "limited",
+    distinguishingFacts: "The fictional case concerned identification, while this demo concerns recovery location.",
+    posture: "neutral",
+  },
+];
+
+const strategies: Strategy[] = [
+  {
+    id: "STRAT-01",
+    title: "Clarify the custody chronology",
+    factualBasis: "The arrest memo and station diary record materially different times.",
+    legalBasis: ["STAT-0001", "AUTH-0001"],
+    sources: ["ARREST-DEMO-01", "DIARY-DEMO-01"],
+    weaknesses: "The discrepancy may have an administrative explanation.",
+    missingEvidence: "Original station diary and custody register.",
+    citationStatus: "verified",
+    ethicsStatus: "approved",
+    included: true,
+    attorneyNotes: "",
+  },
+  {
+    id: "STRAT-02",
+    title: "Test the seizure record sequence",
+    factualBasis: "The witness account predates the sealing time in the memo.",
+    legalBasis: ["STAT-0002", "AUTH-0002"],
+    sources: ["SEIZURE-DEMO-01", "WITNESS-DEMO-A"],
+    weaknesses: "The witness may have estimated the time.",
+    missingEvidence: "Original seal log and property register.",
+    citationStatus: "verified",
+    ethicsStatus: "approved",
+    included: true,
+    attorneyNotes: "",
+  },
+  {
+    id: "STRAT-03",
+    title: "Frame witness differences precisely",
+    factualBasis: "The two accounts place the papers in different locations.",
+    legalBasis: ["AUTH-0003"],
+    sources: ["WITNESS-DEMO-A", "WITNESS-DEMO-B"],
+    weaknesses: "The accounts may describe different moments.",
+    missingEvidence: "Site sketch and follow-up interviews.",
+    citationStatus: "verified",
+    ethicsStatus: "approved",
+    included: true,
+    attorneyNotes: "",
+  },
+  {
+    id: "STRAT-04",
+    title: "Allege intentional police fabrication",
+    factualBasis: "No direct source supports intent; this is an attractive but unsupported inference.",
+    legalBasis: [],
+    sources: ["ARREST-DEMO-01", "SEIZURE-DEMO-01"],
+    weaknesses: "The claim exceeds the evidence and carries a high ethical risk.",
+    missingEvidence: "Direct evidence of intentional fabrication.",
+    citationStatus: "blocked",
+    ethicsStatus: "pending",
+    included: false,
+    attorneyNotes: "",
+  },
+];
+
+const ethicsArguments: EthicsArgument[] = [
+  {
+    id: "ETH-ARG-01",
+    title: "Custody chronology requires explanation",
+    factualSupport: "Two source records contain different custody times.",
+    legalSupport: "STAT-0001 and AUTH-0001 (demonstration only).",
+    sources: ["ARREST-DEMO-01", "DIARY-DEMO-01"],
+    risk: "low",
+    status: "approved",
+    explanation: "Narrowly framed as an issue requiring attorney verification.",
+    history: ["Approved by deterministic Ethics Auditor simulation."],
+  },
+  {
+    id: "ETH-ARG-02",
+    title: "Seizure sequence affects reliability review",
+    factualSupport: "The memo and witness account contain different times.",
+    legalSupport: "STAT-0002 and AUTH-0002 (demonstration only).",
+    sources: ["SEIZURE-DEMO-01", "WITNESS-DEMO-A"],
+    risk: "medium",
+    status: "approved",
+    explanation: "Permitted when presented as a potential concern, not a final conclusion.",
+    history: ["Approved with cautious phrasing."],
+  },
+  {
+    id: "ETH-ARG-04",
+    title: "Intentional police fabrication allegation",
+    factualSupport: "No direct source establishes intent.",
+    legalSupport: "No demonstration authority supports the allegation.",
+    sources: ["ARREST-DEMO-01", "SEIZURE-DEMO-01"],
+    risk: "high",
+    status: "pending",
+    explanation: "Required rejection: the claim exceeds the available source support.",
+    history: ["Flagged for mandatory attorney-visible ethics action."],
+    requiredRejection: true,
+  },
+];
+
+const citations: CitationCheck[] = Array.from({ length: 9 }, (_, index) => ({
+  id: `CIT-${String(index + 1).padStart(2, "0")}`,
+  proposition: [
+    "Custody timing should be traceable.",
+    "Communicated grounds should be documented.",
+    "Sequence gaps require primary-record review.",
+    "Witness differences should be tied to material propositions.",
+    "Seizure handling should be reviewable.",
+    "Police-statement material requires admissibility review.",
+    "Production timing needs primary records.",
+    "Alternative explanations should be tested.",
+    "Relief remains subject to attorney legal analysis.",
+  ][index],
+  authorityId: ["STAT-0001", "STAT-0001", "AUTH-0001", "AUTH-0003", "STAT-0002", "AUTH-0002", "STAT-0001", "AUTH-0003", "AUTH-0001"][index],
+  sourceExists: true,
+  metadataVerified: true,
+  quotationVerified: true,
+  locationVerified: true,
+  propositionSupported: true,
+  applicable: true,
+  distinguishingFacts: "Synthetic applicability note reviewed; authentic legal applicability remains unverified.",
+  status: "verified",
+}));
+
+export const initialMotion = `BEFORE THE SYNTHETIC DEMONSTRATION REVIEW FORUM
+
+IN THE FICTIONAL MATTER OF ARUN NAYAK (DEMO)
+
+DRAFT MOTION FOR ATTORNEY REVIEW
+
+1. Purpose and limits
+This synthetic hackathon draft organises source-linked observations for attorney verification. It is not final legal advice, does not use a verified legal corpus, and is not ready for filing.
+
+2. Custody chronology
+The arrest memo records 17:40, while the station diary records custody at 16:55. The difference is a source-linked observation requiring review against the original records. [STAT-0001] [AUTH-0001]
+
+3. Seizure sequence
+The seizure memo records sealing at 19:10, while a fictional witness account describes the packet as sealed at 18:30. This inconsistency may justify closer reliability review; it does not establish misconduct. [STAT-0002] [AUTH-0002]
+
+4. Witness accounts
+The closed demonstration statements place the disputed papers in different locations. An attorney should test whether the accounts describe the same moment and whether the difference is material. [AUTH-0003]
+
+5. Requested attorney action
+Review the authentic primary material, verify governing law, revise every proposition as needed, and decide whether any motion should be filed.
+
+DRAFT — NOT REVIEWED FOR FILING
+Demonstration authorities are not verified legal sources. Not automatically filed.`;
+
+const initialMotionVersion = {
+  version: 1,
+  body: initialMotion,
+  savedAt: "2026-01-20T12:00:00.000Z",
+  mockHash: stableHash(`${initialMotion}|1`),
+};
+
+export const seedCase: CaseRecord = {
+  id: DEMO_CASE_ID,
+  title: "Nayak Property Papers Matter",
+  reference: "LB-DEMO-PROP-2026-001",
+  allegation: "Fictional allegation concerning disputed property registry papers.",
+  court: "Synthetic District Review Forum",
+  jurisdiction: "Closed demonstration jurisdiction",
+  clientName: "Arun Nayak (synthetic)",
+  advocateName: "Adv. Meera Rao (synthetic)",
+  status: "active",
+  synthetic: true,
+  createdAt: "2026-01-18T08:30:00.000Z",
+  reviewStatus: "pending",
+  documents,
+  workflow: {
+    status: "idle",
+    currentIndex: 0,
+    nodes: agentDefinitions.map((node, index) => ({
+      ...node,
+      status: index === 0 ? "queued" : "locked",
+    })),
+  },
+  timeline,
+  contradictions,
+  findings,
+  authorities,
+  strategies,
+  ethicsArguments,
+  citations,
+  motionVersions: [initialMotionVersion],
+  currentMotion: initialMotion,
+  approval: null,
+};
+
+export const seedAuditEvents: AuditEvent[] = [
+  {
+    id: "audit-seed-01",
+    caseId: DEMO_CASE_ID,
+    type: "case.seeded",
+    message: "Synthetic demonstration case restored.",
+    timestamp: "2026-01-18T08:30:00.000Z",
+    actor: "Demo workspace",
+    relatedEntity: DEMO_CASE_ID,
+    metadata: "Frontend-only synthetic fixture",
+  },
+  {
+    id: "audit-seed-02",
+    caseId: DEMO_CASE_ID,
+    type: "documents.processed",
+    message: "Eight synthetic document records prepared for the demo.",
+    timestamp: "2026-01-18T10:00:00.000Z",
+    actor: "Deterministic simulator",
+    relatedEntity: "document-set-01",
+    metadata: "No files uploaded; metadata only",
+  },
+];

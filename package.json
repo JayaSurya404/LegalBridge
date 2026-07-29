@@ -1,0 +1,17 @@
+{
+  "name": "legalbridge-india",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=20.9.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @legalbridge/client dev",
+    "lint": "pnpm --filter @legalbridge/client lint",
+    "typecheck": "pnpm --filter @legalbridge/client typecheck",
+    "build": "pnpm --filter @legalbridge/client build",
+    "check": "pnpm lint && pnpm typecheck && pnpm build"
+  }
+}

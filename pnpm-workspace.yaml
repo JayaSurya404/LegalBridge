@@ -1,0 +1,8 @@
+packages:
+  - client
+
+confirmModulesPurge: false
+
+allowBuilds:
+  sharp: true
+  unrs-resolver: true

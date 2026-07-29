@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+Thumbs.db
+.pnpm-store/
+coverage/
+client/next-env.d.ts
+client/tsconfig.tsbuildinfo
