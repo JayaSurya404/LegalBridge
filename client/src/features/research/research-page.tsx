@@ -47,34 +47,41 @@ export function ResearchPage() {
         <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
         <p><strong>Demonstration authority — not verified legal corpus.</strong> No record on this page links to or claims verification against a real legal database.</p>
       </div>
-      <Card className="mb-5">
-        <CardContent className="grid gap-3 pt-5 lg:grid-cols-[1fr_15rem_12rem]">
-          <label className="relative">
-            <span className="sr-only">Search demonstration authorities</span>
-            <Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-[var(--slate)]" aria-hidden="true" />
-            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search ID, title, or synthetic summary" className="pl-10" />
-          </label>
-          <label>
-            <span className="sr-only">Filter authority type</span>
-            <select value={type} onChange={(event) => setType(event.target.value)} className="min-h-11 w-full rounded-lg border border-[var(--border-strong)] bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--focus)]">
-              <option value="all">All record types</option>
-              <option value="Demonstration statute">Demonstration statutes</option>
-              <option value="Demonstration precedent">Demonstration precedents</option>
-            </select>
-          </label>
-          <label>
-            <span className="sr-only">Filter posture</span>
-            <select value={posture} onChange={(event) => setPosture(event.target.value)} className="min-h-11 w-full rounded-lg border border-[var(--border-strong)] bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--focus)]">
-              <option value="all">All indicators</option>
-              <option value="favourable">Favourable</option>
-              <option value="adverse">Adverse</option>
-              <option value="neutral">Neutral</option>
-            </select>
-          </label>
-        </CardContent>
-      </Card>
+      {record.authorities.length > 0 && (
+        <Card className="mb-5">
+          <CardContent className="grid gap-3 pt-5 lg:grid-cols-[1fr_15rem_12rem]">
+            <label className="relative">
+              <span className="sr-only">Search demonstration authorities</span>
+              <Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-[var(--slate)]" aria-hidden="true" />
+              <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search ID, title, or synthetic summary" className="pl-10" />
+            </label>
+            <label>
+              <span className="sr-only">Filter authority type</span>
+              <select value={type} onChange={(event) => setType(event.target.value)} className="min-h-11 w-full rounded-lg border border-[var(--border-strong)] bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--focus)]">
+                <option value="all">All record types</option>
+                <option value="Demonstration statute">Demonstration statutes</option>
+                <option value="Demonstration precedent">Demonstration precedents</option>
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">Filter posture</span>
+              <select value={posture} onChange={(event) => setPosture(event.target.value)} className="min-h-11 w-full rounded-lg border border-[var(--border-strong)] bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--focus)]">
+                <option value="all">All indicators</option>
+                <option value="favourable">Favourable</option>
+                <option value="adverse">Adverse</option>
+                <option value="neutral">Neutral</option>
+              </select>
+            </label>
+          </CardContent>
+        </Card>
+      )}
 
-      {authorities.length === 0 ? (
+      {record.authorities.length === 0 ? (
+        <EmptyState
+          title="No demonstration authorities are available"
+          description="Browser-created cases do not receive generated research because this frontend does not query a legal corpus. Use the preloaded synthetic matter for the closed authority walkthrough."
+        />
+      ) : authorities.length === 0 ? (
         <EmptyState title="No authorities match these filters" description="Clear the filters to inspect the closed synthetic authority set." action={<Button variant="secondary" onClick={() => { setQuery(""); setType("all"); setPosture("all"); }}>Clear filters</Button>} />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">

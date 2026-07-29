@@ -22,7 +22,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CitationFirewall } from "@/features/citations/citation-firewall";
 import { useCaseRecord } from "@/lib/hooks/use-case-record";
-import { getCurrentMotionVersion, isExportUnlocked, useAppStore } from "@/stores/app-store";
+import { getMotionGateStatus } from "@/lib/motion-gate";
+import { useAppStore } from "@/stores/app-store";
 
 const schema = z.object({
   reviewerName: z.string().trim().min(2, "Enter the reviewing attorney’s name."),
@@ -46,17 +47,17 @@ export function ReviewPage() {
     defaultValues: { reviewerName: "", pin: "", confirmed: false },
   });
   if (!record) return <UnknownCase />;
-  const current = getCurrentMotionVersion(record);
-  const ethicsApplied = record.ethicsArguments.some((argument) => argument.requiredRejection && argument.status === "rejected");
-  const rejectedIncluded = record.strategies.some((strategy) => strategy.ethicsStatus === "rejected" && strategy.included);
-  const citationPass = record.citations.length === 9 && record.citations.every((citation) => citation.status === "verified");
-  const unlocked = isExportUnlocked(record);
+  const gate = getMotionGateStatus(record);
+  const current = gate.currentVersion;
+  const unlocked = gate.exportUnlocked;
   const conditions = [
-    ["Motion draft exists", Boolean(record.currentMotion)],
-    ["Current motion version is saved", Boolean(current)],
-    ["9 of 9 synthetic citation records pass", citationPass],
-    ["Required unsupported argument is rejected", ethicsApplied],
-    ["No rejected strategy is included", !rejectedIncluded],
+    ["Motion draft exists", gate.motionExists],
+    ["Current motion version and mock hash match", gate.savedMotionMatches],
+    ["9 of 9 synthetic citation records pass", gate.metrics.allCitationChecksPass],
+    ["Required unsupported argument is rejected", gate.ethicsRejectionApplied],
+    ["Every ethics decision is resolved", gate.ethicsReviewResolved],
+    ["No blocked, rejected, or unresolved strategy is included", gate.unsafeStrategyExcluded],
+    ["Rejected argument is absent from the saved motion", gate.rejectedArgumentAbsent],
   ] as const;
 
   const submit = (values: Values) => {
@@ -92,7 +93,9 @@ export function ReviewPage() {
           <p className="mt-1 text-sm leading-6">
             {unlocked
               ? "Browser print is enabled only for the approved version. Any saved edit invalidates this approval."
-              : "Complete every precondition, enter the named reviewer, use demo PIN 2026, and accept responsibility for final legal review."}
+              : record.approval
+                ? "The stored approval no longer satisfies the current export gate. Complete the blocked preconditions and approve again."
+                : "Complete every precondition, enter the named reviewer, use demo PIN 2026, and accept responsibility for final legal review."}
           </p>
         </div>
       </div>
@@ -133,7 +136,7 @@ export function ReviewPage() {
             <p className="mt-1 text-sm leading-6 text-[var(--slate)]">This gate demonstrates human responsibility; it is not production identity verification.</p>
           </CardHeader>
           <CardContent className="p-5 sm:p-6">
-            {record.approval ? (
+            {unlocked && record.approval ? (
               <div>
                 <div className="grid gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 sm:grid-cols-2">
                   <Meta label="Reviewer" value={record.approval.reviewerName} />
@@ -151,20 +154,20 @@ export function ReviewPage() {
               <form onSubmit={handleSubmit(submit)} noValidate className="space-y-5">
                 <div>
                   <label htmlFor="reviewerName" className="mb-2 block text-sm font-semibold text-[var(--navy)]">Reviewing attorney name</label>
-                  <Input id="reviewerName" autoComplete="name" aria-invalid={Boolean(errors.reviewerName)} {...register("reviewerName")} />
-                  {errors.reviewerName && <p role="alert" className="mt-2 text-sm text-[var(--red)]">{errors.reviewerName.message}</p>}
+                  <Input id="reviewerName" autoComplete="name" aria-invalid={Boolean(errors.reviewerName)} aria-describedby={errors.reviewerName ? "reviewerName-error" : undefined} {...register("reviewerName")} />
+                  {errors.reviewerName && <p id="reviewerName-error" role="alert" className="mt-2 text-sm text-[var(--red)]">{errors.reviewerName.message}</p>}
                 </div>
                 <div>
                   <label htmlFor="pin" className="mb-2 block text-sm font-semibold text-[var(--navy)]">Demonstration review PIN</label>
-                  <Input id="pin" type="password" inputMode="numeric" autoComplete="off" maxLength={4} aria-invalid={Boolean(errors.pin)} {...register("pin")} />
-                  {errors.pin && <p role="alert" className="mt-2 text-sm text-[var(--red)]">{errors.pin.message}</p>}
-                  <p className="mt-2 flex items-center gap-2 text-xs text-[var(--slate)]"><KeyRound className="size-3.5" aria-hidden="true" /> Demo PIN: 2026. It is not stored or treated as authentication.</p>
+                  <Input id="pin" type="password" inputMode="numeric" autoComplete="off" maxLength={4} aria-invalid={Boolean(errors.pin)} aria-describedby={errors.pin ? "pin-error pin-help" : "pin-help"} {...register("pin")} />
+                  {errors.pin && <p id="pin-error" role="alert" className="mt-2 text-sm text-[var(--red)]">{errors.pin.message}</p>}
+                  <p id="pin-help" className="mt-2 flex items-center gap-2 text-xs text-[var(--slate)]"><KeyRound className="size-3.5" aria-hidden="true" /> Demo PIN: 2026. It is not stored or treated as authentication.</p>
                 </div>
                 <label className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--cream)] p-4 text-sm leading-6">
-                  <input type="checkbox" className="mt-1 size-5 shrink-0 accent-[var(--navy)]" {...register("confirmed")} />
+                  <input type="checkbox" aria-invalid={Boolean(errors.confirmed)} aria-describedby={errors.confirmed ? "confirmed-error" : undefined} className="mt-1 size-5 shrink-0 accent-[var(--navy)]" {...register("confirmed")} />
                   <span>I accept responsibility for verifying every factual and legal proposition, the authentic record, governing law, requested relief, and any decision to file.</span>
                 </label>
-                {errors.confirmed && <p role="alert" className="text-sm text-[var(--red)]">{errors.confirmed.message}</p>}
+                {errors.confirmed && <p id="confirmed-error" role="alert" className="text-sm text-[var(--red)]">{errors.confirmed.message}</p>}
                 {errors.root && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{errors.root.message}</p>}
                 <Button type="submit" className="w-full" disabled={isSubmitting || conditions.some(([, passed]) => !passed)}>
                   <FileCheck2 className="size-4" aria-hidden="true" /> {isSubmitting ? "Recording approval…" : "Approve current motion version"}
@@ -183,6 +186,7 @@ export function ReviewPage() {
       <article className="print-motion legal-document hidden whitespace-pre-wrap bg-white text-black print:block">
         <header className="mb-8 border-b border-black pb-5 text-center">
           <p className="text-sm font-bold">LEGALBRIDGE INDIA · SYNTHETIC HACKATHON OUTPUT</p>
+          <p className="mt-2 text-sm font-bold">DRAFT — NOT REVIEWED FOR FILING</p>
           <p className="mt-2 text-xs">Not automatically filed · Attorney verification remains required</p>
         </header>
         {record.currentMotion}

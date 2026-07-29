@@ -2,41 +2,91 @@
 
 Updated: 29 July 2026
 
-## Completed
+## Repository state found
 
-- Repository foundation, pnpm workspace, root commands, and project documentation.
-- Next.js 16.2.12 App Router frontend with React 19.2, strict TypeScript, Tailwind CSS, shadcn-style primitives, local assets, metadata, and print rules.
-- Public landing page, disclaimers, demo sign-in, persisted client guard, responsive shell, collapsible desktop sidebar, mobile drawer, breadcrumbs, toast system, loading/error/not-found/configuration states.
-- Dashboard, case search/filtering, six-step local case wizard, case overview, file metadata validation, deterministic processing, 15-agent workflow controls and inspection.
-- Timeline, contradiction matrix, procedural audit, closed synthetic research, strategy, ethics, Motion Studio, Citation Firewall, attorney review, print gate, audit history, observability, preferences, and safe demo reset.
-- Typed API contracts, mock client, controlled unavailable HTTP adapter, query keys, and TanStack Query provider.
-- Original SVG icon and generated local social preview.
+- Existing pnpm workspace on branch `main`, tracking the unchanged `origin` remote.
+- The working tree was clean at the start of this continuation.
+- `node_modules` was already present; dependency installation was not needed.
+- The Next.js client, documentation-only `server/` boundary, synthetic fixtures, local Zustand state, typed API abstraction, and all required route files were already present.
 
-## Completed routes
+## Frontend already present
 
-`/`, `/sign-in`, `/dashboard`, `/cases`, `/cases/new`, `/cases/[caseId]`, `/cases/[caseId]/documents`, `/cases/[caseId]/workflow`, `/cases/[caseId]/timeline`, `/cases/[caseId]/contradictions`, `/cases/[caseId]/procedural-audit`, `/cases/[caseId]/research`, `/cases/[caseId]/strategy`, `/cases/[caseId]/ethics`, `/cases/[caseId]/motion`, `/cases/[caseId]/review`, `/cases/[caseId]/audit-log`, `/observability`, and `/settings`.
+- Next.js 16.2.12 App Router client with React 19.2, strict TypeScript, Tailwind CSS, shadcn-style primitives, local assets, metadata, and print rules.
+- Public landing and sign-in pages, local demonstration credentials, persisted authentication state, hydration-safe protected shell, sign-out, desktop sidebar, mobile drawer, breadcrumbs, toast system, and loading/error/not-found/configuration states.
+- Dashboard, case search and filtering, six-step browser-local case creation, case overview, document metadata selection, deterministic 15-agent workflow, analysis pages, strategy, ethics, Motion Studio, Citation Firewall, attorney review, browser print gate, audit history, observability, display preferences, and safe demo reset.
+- Deterministic synthetic case data, closed fictional authorities, typed frontend contracts, mock client, unavailable HTTP adapter, query keys, and TanStack Query provider.
 
-## Commands
+## Continuation work completed
 
-`pnpm install`, `pnpm dev`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm check`.
+- Centralised motion, citation, ethics, approval-version, mock-hash, and export eligibility in one frontend gate.
+- Added blocking checks for missing or incomplete citation support, unresolved ethics revisions, included blocked strategies, and ethics-rejected arguments manually reinserted into the saved motion.
+- Bound export to a valid saved motion body, deterministic mock hash, current approval version, and all current Citation Firewall and ethics conditions.
+- Invalidated attorney approval when an ethics decision changes and prevented duplicate workflow, document-processing, ethics-review, and approval transitions.
+- Made the Citation Firewall metrics derive from actual case state while retaining the required seed result: 9 citations, 9 resolved source records, 9 verified quotations, 9 supported propositions, 0 phantom citations, 0 unsupported final claims, and 1 required ethics rejection.
+- Added visible, cancellable simulated document-processing progress, extension/MIME/size/empty/duplicate/safe-name/capacity validation, and store-level duplicate/capacity protection.
+- Added workflow-created audit events for facts, timeline events, contradictions, and potential procedural concerns when the closed seed fixtures exist.
+- Locked workflow start until document metadata exists and simulated processing is complete.
+- Clarified the browser-created-case boundary: custom files are not parsed, orchestration can be demonstrated, and no case-specific legal outputs are fabricated.
+- Repaired custom-case empty states and removed inaccurate fixed fact/citation percentages from case and observability summaries.
+- Added print-view draft watermarking, more complete approval preconditions, invalid/stale approval states, and dynamic locked-export explanations.
+- Connected case-wizard and attorney-review errors to their inputs for assistive technology.
+- Corrected the mock sign-in response so an email is returned only for valid credentials and made the unavailable HTTP adapter reject predictably.
+
+## Routes and surfaces inspected
+
+Public routes:
+
+- `/`
+- `/sign-in`
+
+Protected routes:
+
+- `/dashboard`
+- `/cases`
+- `/cases/new`
+- `/cases/[caseId]`
+- `/cases/[caseId]/documents`
+- `/cases/[caseId]/workflow`
+- `/cases/[caseId]/timeline`
+- `/cases/[caseId]/contradictions`
+- `/cases/[caseId]/procedural-audit`
+- `/cases/[caseId]/research`
+- `/cases/[caseId]/strategy`
+- `/cases/[caseId]/ethics`
+- `/cases/[caseId]/motion`
+- `/cases/[caseId]/review`
+- `/cases/[caseId]/audit-log`
+- `/observability`
+- `/settings`
+
+Also inspected the root loading, error, and not-found boundaries; authentication guard; responsive workspace navigation; case navigation; dialogs; shared status and disclaimer components; persisted app store; domain contracts; synthetic seed; API adapters; public environment handling; and responsive/print styles.
+
+## Known limitations
+
+- Authentication, document processing, workflow activity, legal analysis, citations, authorities, token counts, costs, time-reduction figures, and audit records are deterministic frontend demonstrations.
+- Browser-created files are reduced to safe metadata. No binary is persisted, uploaded, parsed, or used to generate case-specific findings.
+- Only the preloaded synthetic matter contains the closed timeline, contradiction, procedural, research, strategy, ethics, citation, and motion fixtures.
+- Browser-local state is neither secure nor authoritative.
+- Browser print/Save as PDF is the only export mechanism and never files anything with a court.
+- There is no OCR, real legal research, verified legal corpus, production authentication, backend, database, cloud storage, server-side PDF generation, or automatic filing.
 
 ## Verification
 
-- Dependency installation: pass with pnpm 11 build approvals restricted to `sharp` and `unrs-resolver`.
-- Staged public-shell lint/type/build: pass.
-- Staged case/workflow lint/type/build: pass.
-- Staged analysis/research lint/type/build: pass.
-- Staged strategy/ethics/motion/review lint/type/build: pass.
-- Final Stage 8 checks and localhost browser exercise: recorded after the final verification run below.
+Manual verification pending.
 
-## Data mode and limitations
+By user request, this continuation did not run `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm check`, the development server, browser automation, or localhost testing. Earlier documentation claims about completed final verification were not treated as current evidence.
 
-The current data mode is `mock`, defaults safely without an environment file, and uses deterministic fixtures plus versioned localStorage state. There is no production authentication, secure persistence, real parsing, OCR, model call, legal corpus, legal citation verification, backend, database, storage service, cloud deployment, server-side PDF, or filing integration.
+## Package and installation status
 
-## Phase boundary
+- `package.json`, `client/package.json`, and `pnpm-lock.yaml` were not changed.
+- No dependencies were added or upgraded.
+- The user does not need to run `pnpm install` for these continuation changes.
 
-Frontend-only checkpoint. Backend work has not started. The next approved phase is a minimal FastAPI foundation with contract parity, configuration, a health endpoint, Supabase connection planning, and activation planning for the typed HTTP adapter.
+## Git and phase boundary
 
-## Git status
-
-The repository began empty except for `.git`, on branch `main`, with remote `origin` unchanged. Final modified/untracked summary is recorded after verification; no commit, stage, push, branch change, or remote change is authorised or performed by this checkpoint.
+- The handoff working tree contains unstaged frontend and current-state documentation changes from this continuation.
+- No files were staged.
+- No commit or push was performed.
+- No branch, remote, or Git history change was performed.
+- No backend was implemented or started.
+- The next phase was not started; `server/` remains documentation-only.

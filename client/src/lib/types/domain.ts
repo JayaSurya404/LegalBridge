@@ -125,7 +125,7 @@ export interface CitationCheck {
   propositionSupported: boolean;
   applicable: boolean;
   distinguishingFacts: string;
-  status: "verified";
+  status: VerificationStatus;
 }
 
 export interface MotionVersion {

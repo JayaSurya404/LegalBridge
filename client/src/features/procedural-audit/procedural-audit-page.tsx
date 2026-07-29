@@ -19,7 +19,14 @@ export function ProceduralAuditPage() {
       description="Demonstration-only screening for potential concerns. Every finding requires attorney verification against authentic records and governing law."
     >
       {record.findings.length === 0 ? (
-        <EmptyState title="No procedural findings" description="Run the deterministic workflow to create demonstration-only screening results." />
+        <EmptyState
+          title="No procedural findings are available"
+          description={
+            record.workflow.status === "completed"
+              ? "The orchestration simulation completed, but browser-created cases do not receive case-specific findings because this frontend does not parse selected files."
+              : "Run the deterministic workflow on the preloaded synthetic matter to review closed demonstration-only screening results."
+          }
+        />
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
           {record.findings.map((finding) => (

@@ -19,7 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { CitationFirewall } from "@/features/citations/citation-firewall";
 import { useCaseRecord } from "@/lib/hooks/use-case-record";
-import { getCurrentMotionVersion, isExportUnlocked, useAppStore } from "@/stores/app-store";
+import { getMotionGateStatus } from "@/lib/motion-gate";
+import { useAppStore } from "@/stores/app-store";
 
 export function MotionPage() {
   const { caseId, record } = useCaseRecord();
@@ -28,9 +29,10 @@ export function MotionPage() {
   const [body, setBody] = useState(record?.currentMotion ?? "");
 
   if (!record) return <UnknownCase />;
-  const currentVersion = getCurrentMotionVersion(record);
+  const gate = getMotionGateStatus(record);
+  const currentVersion = gate.currentVersion;
   const dirty = body.trim() !== record.currentMotion.trim();
-  const unlocked = isExportUnlocked(record);
+  const unlocked = gate.exportUnlocked;
 
   const print = () => {
     if (!recordExport(caseId)) {
@@ -73,7 +75,7 @@ export function MotionPage() {
             {unlocked
               ? `Approval is bound to ${record.approval?.mockHash}. Editing and saving will revoke it immediately.`
               : record.approval
-                ? "Approval was invalidated because the motion changed. A new attorney review is required."
+                ? "The stored approval no longer satisfies the current motion, citation, and ethics gate. A new attorney review is required."
                 : "A named attorney must approve the current version after the Citation Firewall and ethics gate pass."}
           </p>
         </div>
@@ -89,7 +91,7 @@ export function MotionPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <StatusBadge status={dirty ? "unsaved changes" : "saved"} />
-                <StatusBadge status={record.approval ? "approved" : "pending"} />
+                <StatusBadge status={unlocked ? "approved" : record.approval ? "invalidated" : "pending"} />
               </div>
             </div>
           </CardHeader>
@@ -170,10 +172,9 @@ export function MotionPage() {
             <div>
               <h2 className="font-semibold text-[var(--navy)]">Print/export remains locked</h2>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-[var(--slate)]">
-                <li>The current motion version must be saved.</li>
-                <li>All nine synthetic citation records must pass.</li>
-                <li>The unsupported fabrication argument must be rejected.</li>
-                <li>A named attorney must approve the exact version and mock hash.</li>
+                {gate.exportBlockers.map((blocker) => (
+                  <li key={blocker}>{blocker}</li>
+                ))}
               </ul>
             </div>
           </CardContent>
@@ -183,6 +184,7 @@ export function MotionPage() {
       <article className="print-motion legal-document hidden whitespace-pre-wrap bg-white text-black print:block">
         <header className="mb-8 border-b border-black pb-5 text-center">
           <p className="text-sm font-bold">LEGALBRIDGE INDIA · SYNTHETIC HACKATHON OUTPUT</p>
+          <p className="mt-2 text-sm font-bold">DRAFT — NOT REVIEWED FOR FILING</p>
           <p className="mt-2 text-xs">Not automatically filed · Attorney verification remains required</p>
         </header>
         {record.currentMotion}

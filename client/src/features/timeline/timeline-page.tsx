@@ -17,9 +17,13 @@ export function TimelinePage() {
   const [conflictsOnly, setConflictsOnly] = useState(false);
   const [activeSource, setActiveSource] = useState<string | null>(null);
   if (!record) return <UnknownCase />;
-  const events = conflictsOnly
-    ? record.timeline.filter((event) => event.conflict)
-    : record.timeline;
+  const events = record.timeline
+    .filter((event) => !conflictsOnly || event.conflict)
+    .toSorted(
+      (first, second) =>
+        new Date(first.timestamp).getTime() -
+        new Date(second.timestamp).getTime(),
+    );
 
   return (
     <CasePage
@@ -27,13 +31,18 @@ export function TimelinePage() {
       eyebrow={record.reference}
       title="Source-linked timeline"
       description="Chronological demonstration observations remain connected to fictional source locations. They are extracted records, not attorney conclusions."
-      actions={
+      actions={record.timeline.length > 0 ? (
         <Button variant={conflictsOnly ? "default" : "secondary"} onClick={() => setConflictsOnly((current) => !current)}>
           <Filter className="size-4" aria-hidden="true" /> {conflictsOnly ? "Showing conflicts" : "Show conflicts only"}
         </Button>
-      }
+      ) : undefined}
     >
-      {events.length === 0 ? (
+      {record.timeline.length === 0 ? (
+        <EmptyState
+          title="No source-linked timeline is available"
+          description="Browser-created cases do not receive case-specific analysis because this frontend does not parse selected files. Use the preloaded synthetic matter for the closed timeline demonstration."
+        />
+      ) : events.length === 0 ? (
         <EmptyState title="No timeline events in this view" description="Clear the conflict filter to review all source-linked demonstration events." action={<Button onClick={() => setConflictsOnly(false)}>Show all events</Button>} />
       ) : (
         <ol className="relative ml-4 border-l-2 border-[var(--border)] pl-6 sm:ml-7 sm:pl-8">

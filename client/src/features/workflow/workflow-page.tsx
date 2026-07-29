@@ -17,6 +17,7 @@ import { UnknownCase } from "@/components/shared/unknown-case";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DEMO_CASE_ID } from "@/lib/demo/seed";
 import { useCaseRecord } from "@/lib/hooks/use-case-record";
 import type { WorkflowNode } from "@/lib/types/domain";
 import { cn } from "@/lib/utils";
@@ -43,12 +44,24 @@ export function WorkflowPage() {
 
   if (!record) return <UnknownCase />;
   const workflow = record.workflow;
+  const documentsReady =
+    record.documents.length > 0 &&
+    record.documents.every((document) => document.status === "processed");
+  const isClosedDemoCase = record.id === DEMO_CASE_ID;
   const completed = workflow.nodes.filter((node) => node.status === "completed").length;
   const progress = Math.round((completed / workflow.nodes.length) * 100);
 
   const controls = (
     <>
-      {workflow.status === "idle" && <Button onClick={() => startWorkflow(caseId)}><Play className="size-4" aria-hidden="true" /> Start</Button>}
+      {workflow.status === "idle" && (
+        <Button
+          disabled={!documentsReady}
+          title={documentsReady ? "Start deterministic workflow" : "Add and process document metadata first"}
+          onClick={() => startWorkflow(caseId)}
+        >
+          <Play className="size-4" aria-hidden="true" /> Start
+        </Button>
+      )}
       {workflow.status === "running" && <Button onClick={() => { pauseWorkflow(caseId); toast.info("Workflow paused and retained locally."); }}><Pause className="size-4" aria-hidden="true" /> Pause</Button>}
       {workflow.status === "paused" && <Button onClick={() => { resumeWorkflow(caseId); toast.success("Workflow resumed."); }}><RefreshCcw className="size-4" aria-hidden="true" /> Resume</Button>}
       {workflow.status === "completed" && <StatusBadge status="completed" />}
@@ -71,6 +84,20 @@ export function WorkflowPage() {
       description="A fixed 15-agent frontend simulation with retained progress. It makes no external calls and performs no real legal analysis."
       actions={controls}
     >
+      {!isClosedDemoCase && (
+        <Card className="mb-6 border-blue-200 bg-blue-50">
+          <CardContent className="p-5 text-sm leading-6 text-blue-950">
+            This browser-created case can exercise the fixed agent order, controls, timing, persistence, and audit trail. It will not produce case-specific facts, findings, authorities, or a motion because this frontend does not read file contents. Use the preloaded synthetic matter for the closed analysis walkthrough.
+          </CardContent>
+        </Card>
+      )}
+      {workflow.status === "idle" && !documentsReady && (
+        <Card className="mb-6 border-amber-200 bg-amber-50">
+          <CardContent className="p-5 text-sm leading-6 text-amber-950">
+            Workflow start is locked until this case has at least one document metadata record and all selected records have completed simulated processing.
+          </CardContent>
+        </Card>
+      )}
       <Card className="mb-6">
         <CardContent className="p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -83,7 +110,14 @@ export function WorkflowPage() {
             </div>
             <span className="font-serif text-3xl font-semibold text-[var(--navy)]">{progress}%</span>
           </div>
-          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-200" aria-label={`${progress}% workflow progress`}>
+          <div
+            className="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-200"
+            role="progressbar"
+            aria-label="Workflow progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress}
+          >
             <div className="h-full rounded-full bg-[var(--green)] transition-[width]" style={{ width: `${progress}%` }} />
           </div>
         </CardContent>
@@ -130,7 +164,11 @@ export function WorkflowPage() {
                 <Detail label="Deterministic output">{inspected.output}</Detail>
                 <Detail label="Simulated duration">{inspected.durationMs} ms</Detail>
                 <Detail label="Source references">
-                  <div className="flex flex-wrap gap-2">{inspected.sourceRefs.map((source) => <SourceChip key={source}>{source}</SourceChip>)}</div>
+                  {inspected.sourceRefs.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">{inspected.sourceRefs.map((source) => <SourceChip key={source}>{source}</SourceChip>)}</div>
+                  ) : (
+                    <span>No source references are generated for browser-created cases.</span>
+                  )}
                 </Detail>
               </div>
             </>

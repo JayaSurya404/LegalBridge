@@ -8,6 +8,7 @@ import {
   seedAuditEvents,
   seedCase,
 } from "@/lib/demo/seed";
+import { getMotionGateStatus } from "@/lib/motion-gate";
 import type {
   AuditEvent,
   CaseRecord,
@@ -104,6 +105,61 @@ function freshSeedCase() {
   return structuredClone(seedCase);
 }
 
+function getAnalysisCompletionEvent(
+  nodeId: string,
+  record: CaseRecord,
+):
+  | {
+      type: string;
+      message: string;
+      relatedEntity: string;
+      metadata: string;
+    }
+  | undefined {
+  if (nodeId === "agent-facts" && record.timeline.length > 0) {
+    return {
+      type: "analysis.facts_created",
+      message: "Twenty-four source-linked demonstration facts were created.",
+      relatedEntity: "fact-set",
+      metadata: "Synthetic observations requiring attorney verification",
+    };
+  }
+  if (nodeId === "agent-timeline" && record.timeline.length > 0) {
+    return {
+      type: "analysis.timeline_created",
+      message: `${record.timeline.length} source-linked timeline events were created.`,
+      relatedEntity: "timeline-set",
+      metadata: "Includes the conflicting arrest-time indicators",
+    };
+  }
+  if (
+    nodeId === "agent-contradictions" &&
+    record.contradictions.length > 0
+  ) {
+    return {
+      type: "analysis.contradictions_created",
+      message: `${record.contradictions.length} demonstration contradictions were created for review.`,
+      relatedEntity: "contradiction-set",
+      metadata: "Arrest, seizure, and witness comparisons",
+    };
+  }
+  if (nodeId === "agent-procedure" && record.findings.length > 0) {
+    return {
+      type: "analysis.findings_created",
+      message: `${record.findings.length} potential procedural concerns were created for attorney verification.`,
+      relatedEntity: "finding-set",
+      metadata: "Demonstration screening only; no violation concluded",
+    };
+  }
+  return undefined;
+}
+
+const strategyIdByEthicsArgument: Record<string, string> = {
+  "ETH-ARG-01": "STRAT-01",
+  "ETH-ARG-02": "STRAT-02",
+  "ETH-ARG-04": "STRAT-04",
+};
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -174,6 +230,9 @@ export const useAppStore = create<AppState>()(
             currentIndex: 0,
             nodes: agentDefinitions.map((node, index) => ({
               ...node,
+              output:
+                "No case-specific output is generated for browser-created cases because this frontend does not parse file contents. Use the preloaded synthetic matter for closed analysis fixtures.",
+              sourceRefs: [],
               status: index === 0 ? "queued" : "locked",
             })),
           },
@@ -211,9 +270,15 @@ export const useAppStore = create<AppState>()(
         const existingNames = new Set(
           record.documents.map((document) => document.name.toLowerCase()),
         );
-        const unique = incoming.filter(
-          (document) => !existingNames.has(document.name.toLowerCase()),
-        );
+        const remainingCapacity = Math.max(0, 12 - record.documents.length);
+        const unique = incoming
+          .filter((document) => {
+            const normalizedName = document.name.toLowerCase();
+            if (existingNames.has(normalizedName)) return false;
+            existingNames.add(normalizedName);
+            return true;
+          })
+          .slice(0, remainingCapacity);
         const added = unique.map((document) => ({
           ...document,
           id: makeId("doc-local"),
@@ -239,7 +304,14 @@ export const useAppStore = create<AppState>()(
         }));
         return added.length;
       },
-      processDocuments: (caseId) =>
+      processDocuments: (caseId) => {
+        const record = get().cases.find((item) => item.id === caseId);
+        if (
+          !record ||
+          !record.documents.some((document) => document.status !== "processed")
+        ) {
+          return;
+        }
         set((state) => ({
           cases: updateCase(state.cases, caseId, (item) => ({
             ...item,
@@ -259,8 +331,18 @@ export const useAppStore = create<AppState>()(
             ),
             ...state.auditEvents,
           ],
-        })),
-      startWorkflow: (caseId) =>
+        }));
+      },
+      startWorkflow: (caseId) => {
+        const record = get().cases.find((item) => item.id === caseId);
+        if (
+          !record ||
+          record.workflow.status !== "idle" ||
+          record.documents.length === 0 ||
+          record.documents.some((document) => document.status !== "processed")
+        ) {
+          return;
+        }
         set((state) => ({
           cases: updateCase(state.cases, caseId, (item) => ({
             ...item,
@@ -288,8 +370,11 @@ export const useAppStore = create<AppState>()(
             ),
             ...state.auditEvents,
           ],
-        })),
-      pauseWorkflow: (caseId) =>
+        }));
+      },
+      pauseWorkflow: (caseId) => {
+        const record = get().cases.find((item) => item.id === caseId);
+        if (!record || record.workflow.status !== "running") return;
         set((state) => ({
           cases: updateCase(state.cases, caseId, (item) => ({
             ...item,
@@ -306,8 +391,11 @@ export const useAppStore = create<AppState>()(
             ),
             ...state.auditEvents,
           ],
-        })),
-      resumeWorkflow: (caseId) =>
+        }));
+      },
+      resumeWorkflow: (caseId) => {
+        const record = get().cases.find((item) => item.id === caseId);
+        if (!record || record.workflow.status !== "paused") return;
         set((state) => ({
           cases: updateCase(state.cases, caseId, (item) => ({
             ...item,
@@ -324,7 +412,8 @@ export const useAppStore = create<AppState>()(
             ),
             ...state.auditEvents,
           ],
-        })),
+        }));
+      },
       advanceWorkflow: (caseId) => {
         const record = get().cases.find((item) => item.id === caseId);
         if (!record || record.workflow.status !== "running") return;
@@ -342,6 +431,22 @@ export const useAppStore = create<AppState>()(
             `${completedNode.durationMs} ms simulated duration`,
           ),
         ];
+        const analysisEvent = getAnalysisCompletionEvent(
+          completedNode.id,
+          record,
+        );
+        if (analysisEvent) {
+          events.unshift(
+            audit(
+              caseId,
+              analysisEvent.type,
+              analysisEvent.message,
+              "Deterministic simulator",
+              analysisEvent.relatedEntity,
+              analysisEvent.metadata,
+            ),
+          );
+        }
         if (isFinal) {
           events.unshift(
             audit(
@@ -407,8 +512,8 @@ export const useAppStore = create<AppState>()(
             ...item,
             strategies: item.strategies.map((strategy) =>
               strategy.id === strategyId &&
-              strategy.ethicsStatus !== "rejected" &&
-              strategy.citationStatus !== "blocked"
+              strategy.ethicsStatus === "approved" &&
+              strategy.citationStatus === "verified"
                 ? { ...strategy, included }
                 : strategy,
             ),
@@ -425,7 +530,15 @@ export const useAppStore = create<AppState>()(
             ),
           })),
         })),
-      reviewEthicsArgument: (caseId, argumentId, status) =>
+      reviewEthicsArgument: (caseId, argumentId, status) => {
+        const record = get().cases.find((item) => item.id === caseId);
+        const currentArgument = record?.ethicsArguments.find(
+          (argument) => argument.id === argumentId,
+        );
+        if (!record || !currentArgument || currentArgument.status === status) {
+          return;
+        }
+        const hadApproval = Boolean(record.approval);
         set((state) => ({
           cases: updateCase(state.cases, caseId, (item) => ({
             ...item,
@@ -448,16 +561,31 @@ export const useAppStore = create<AppState>()(
                 : argument,
             ),
             strategies: item.strategies.map((strategy) =>
-              strategy.id === "STRAT-04" && argumentId === "ETH-ARG-04"
+              strategy.id === strategyIdByEthicsArgument[argumentId]
                 ? {
                     ...strategy,
                     ethicsStatus: status,
-                    included: status === "rejected" ? false : strategy.included,
+                    included:
+                      status === "approved" ? strategy.included : false,
                   }
                 : strategy,
             ),
+            approval: hadApproval ? null : item.approval,
+            reviewStatus: hadApproval ? "revision" : item.reviewStatus,
           })),
           auditEvents: [
+            ...(hadApproval
+              ? [
+                  audit(
+                    caseId,
+                    "approval.invalidated",
+                    "Attorney approval was invalidated because an ethics decision changed.",
+                    "Demo workspace",
+                    argumentId,
+                    "Export locked immediately",
+                  ),
+                ]
+              : []),
             audit(
               caseId,
               `ethics.argument_${status}`,
@@ -470,7 +598,8 @@ export const useAppStore = create<AppState>()(
             ),
             ...state.auditEvents,
           ],
-        })),
+        }));
+      },
       saveMotion: (caseId, body) => {
         const record = get().cases.find((item) => item.id === caseId);
         if (!record || body.trim() === record.currentMotion.trim()) return;
@@ -504,8 +633,8 @@ export const useAppStore = create<AppState>()(
               : []),
             audit(
               caseId,
-              "motion.saved",
-              `Motion saved as version ${version}.`,
+              "motion.edited",
+              `Motion draft edited and saved as version ${version}.`,
               "Demo attorney",
               `motion-v${version}`,
               mockHash,
@@ -531,22 +660,17 @@ export const useAppStore = create<AppState>()(
             message: "Confirm responsibility for final legal review.",
           };
         }
-        if (
-          !record.citations.length ||
-          record.citations.some((citation) => citation.status !== "verified")
-        ) {
-          return { ok: false, message: "The Citation Firewall must pass first." };
-        }
-        const rejection = record.ethicsArguments.find(
-          (argument) => argument.requiredRejection,
-        );
-        if (rejection?.status !== "rejected") {
+        const gate = getMotionGateStatus(record);
+        if (gate.exportUnlocked) {
           return {
-            ok: false,
-            message: "Reject the unsupported ethics argument before approval.",
+            ok: true,
+            message: "The current motion version is already approved.",
           };
         }
-        const motionVersion = record.motionVersions.at(-1);
+        if (gate.approvalBlockers.length > 0) {
+          return { ok: false, message: gate.approvalBlockers[0] };
+        }
+        const motionVersion = gate.currentVersion;
         if (!motionVersion) {
           return { ok: false, message: "Save the motion before approval." };
         }
@@ -581,20 +705,18 @@ export const useAppStore = create<AppState>()(
       },
       recordExport: (caseId) => {
         const record = get().cases.find((item) => item.id === caseId);
-        const latest = record?.motionVersions.at(-1);
-        const valid =
-          Boolean(record?.approval) &&
-          record?.approval?.version === latest?.version &&
-          record?.approval?.mockHash === latest?.mockHash;
-        if (!valid) return false;
+        if (!record) return false;
+        const gate = getMotionGateStatus(record);
+        if (!gate.exportUnlocked || !gate.currentVersion) return false;
+        const latest = gate.currentVersion;
         set((state) => ({
           auditEvents: [
             audit(
               caseId,
               "export.generated",
               "Browser print or Save as PDF was opened for the approved version.",
-              record?.approval?.reviewerName ?? "Demo attorney",
-              `motion-v${latest?.version ?? 0}`,
+              record.approval?.reviewerName ?? "Demo attorney",
+              `motion-v${latest.version}`,
               "Not automatically filed",
             ),
             ...state.auditEvents,
@@ -658,17 +780,3 @@ export const useAppStore = create<AppState>()(
     },
   ),
 );
-
-export function getCurrentMotionVersion(record: CaseRecord) {
-  return record.motionVersions.at(-1);
-}
-
-export function isExportUnlocked(record: CaseRecord) {
-  const current = getCurrentMotionVersion(record);
-  return Boolean(
-    record.approval &&
-      current &&
-      record.approval.version === current.version &&
-      record.approval.mockHash === current.mockHash,
-  );
-}

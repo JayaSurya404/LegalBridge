@@ -41,7 +41,10 @@ export function EthicsPage() {
       </Card>
 
       {record.ethicsArguments.length === 0 ? (
-        <EmptyState title="Ethics review pending" description="Complete strategy generation before reviewing candidate arguments." />
+        <EmptyState
+          title="No candidate arguments are available"
+          description="Browser-created cases do not receive generated arguments because this frontend performs no document parsing or legal analysis. Use the preloaded synthetic matter for the ethics-review walkthrough."
+        />
       ) : (
         <div className="grid gap-5">
           {record.ethicsArguments.map((argument) => (
@@ -77,13 +80,13 @@ export function EthicsPage() {
                   </ol>
                 </details>
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={() => { reviewArgument(caseId, argument.id, "approved"); toast.success("Argument marked approved for demonstration use."); }}>
+                  <Button disabled={argument.status === "approved"} variant="secondary" onClick={() => { reviewArgument(caseId, argument.id, "approved"); toast.success("Argument marked approved for demonstration use."); }}>
                     <Check className="size-4" aria-hidden="true" /> Approve
                   </Button>
-                  <Button variant="secondary" onClick={() => { reviewArgument(caseId, argument.id, "revision"); toast.info("Revision requested."); }}>
+                  <Button disabled={argument.status === "revision"} variant="secondary" onClick={() => { reviewArgument(caseId, argument.id, "revision"); toast.info("Revision requested."); }}>
                     <RotateCcw className="size-4" aria-hidden="true" /> Request revision
                   </Button>
-                  <Button variant="danger" onClick={() => { reviewArgument(caseId, argument.id, "rejected"); toast.error(argument.requiredRejection ? "Unsupported argument rejected and excluded." : "Argument rejected."); }}>
+                  <Button disabled={argument.status === "rejected"} variant="danger" onClick={() => { reviewArgument(caseId, argument.id, "rejected"); toast.error(argument.requiredRejection ? "Unsupported argument rejected and excluded." : "Argument rejected."); }}>
                     <X className="size-4" aria-hidden="true" /> Reject
                   </Button>
                 </div>

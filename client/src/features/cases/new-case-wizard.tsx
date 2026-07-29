@@ -120,35 +120,35 @@ export function NewCaseWizard() {
               {step === 0 && (
                 <div className="grid gap-5">
                   <Field label="Case title" id="title" error={errors.title?.message}>
-                    <Input id="title" placeholder="e.g. Synthetic Tenancy Papers Matter" {...register("title")} />
+                    <Input id="title" aria-invalid={Boolean(errors.title)} aria-describedby={errors.title ? "title-error" : undefined} placeholder="e.g. Synthetic Tenancy Papers Matter" {...register("title")} />
                   </Field>
                   <Field label="Fictional reference" id="reference" error={errors.reference?.message}>
-                    <Input id="reference" placeholder="LB-DEMO-2026-002" {...register("reference")} />
+                    <Input id="reference" aria-invalid={Boolean(errors.reference)} aria-describedby={errors.reference ? "reference-error" : undefined} placeholder="LB-DEMO-2026-002" {...register("reference")} />
                   </Field>
                 </div>
               )}
               {step === 1 && (
                 <div className="grid gap-5 sm:grid-cols-2">
                   <Field label="Synthetic client name" id="clientName" error={errors.clientName?.message}>
-                    <Input id="clientName" placeholder="Client name (synthetic)" {...register("clientName")} />
+                    <Input id="clientName" aria-invalid={Boolean(errors.clientName)} aria-describedby={errors.clientName ? "clientName-error" : undefined} placeholder="Client name (synthetic)" {...register("clientName")} />
                   </Field>
                   <Field label="Synthetic advocate name" id="advocateName" error={errors.advocateName?.message}>
-                    <Input id="advocateName" placeholder="Advocate name (synthetic)" {...register("advocateName")} />
+                    <Input id="advocateName" aria-invalid={Boolean(errors.advocateName)} aria-describedby={errors.advocateName ? "advocateName-error" : undefined} placeholder="Advocate name (synthetic)" {...register("advocateName")} />
                   </Field>
                 </div>
               )}
               {step === 2 && (
                 <Field label="Fictional allegation summary" id="allegation" error={errors.allegation?.message}>
-                  <Textarea id="allegation" rows={7} placeholder="Describe a fictional allegation and procedural context. Do not enter real personal data." {...register("allegation")} />
+                  <Textarea id="allegation" rows={7} aria-invalid={Boolean(errors.allegation)} aria-describedby={errors.allegation ? "allegation-error" : undefined} placeholder="Describe a fictional allegation and procedural context. Do not enter real personal data." {...register("allegation")} />
                 </Field>
               )}
               {step === 3 && (
                 <div className="grid gap-5">
                   <Field label="Synthetic review forum" id="court" error={errors.court?.message}>
-                    <Input id="court" {...register("court")} />
+                    <Input id="court" aria-invalid={Boolean(errors.court)} aria-describedby={errors.court ? "court-error" : undefined} {...register("court")} />
                   </Field>
                   <Field label="Demonstration jurisdiction" id="jurisdiction" error={errors.jurisdiction?.message}>
-                    <Input id="jurisdiction" {...register("jurisdiction")} />
+                    <Input id="jurisdiction" aria-invalid={Boolean(errors.jurisdiction)} aria-describedby={errors.jurisdiction ? "jurisdiction-error" : undefined} {...register("jurisdiction")} />
                   </Field>
                 </div>
               )}
@@ -220,7 +220,7 @@ function Field({
     <div>
       <label htmlFor={id} className="mb-2 block text-sm font-semibold text-[var(--navy)]">{label}</label>
       {children}
-      {error && <p role="alert" className="mt-2 text-sm text-[var(--red)]">{error}</p>}
+      {error && <p id={`${id}-error`} role="alert" className="mt-2 text-sm text-[var(--red)]">{error}</p>}
     </div>
   );
 }

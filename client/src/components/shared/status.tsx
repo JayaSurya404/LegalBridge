@@ -41,7 +41,14 @@ export function Confidence({ value }: { value: number }) {
         <span>Confidence</span>
         <span className="font-semibold text-[var(--ink)]">{value}%</span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+      <div
+        className="h-1.5 overflow-hidden rounded-full bg-slate-200"
+        role="progressbar"
+        aria-label="Confidence"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={value}
+      >
         <div
           className="h-full rounded-full bg-[var(--green)]"
           style={{ width: `${value}%` }}

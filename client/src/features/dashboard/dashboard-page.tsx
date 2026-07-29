@@ -17,7 +17,8 @@ import { StatusBadge } from "@/components/shared/status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { DEMO_CASE_ID } from "@/lib/demo/seed";
-import { isExportUnlocked, useAppStore } from "@/stores/app-store";
+import { getMotionGateStatus } from "@/lib/motion-gate";
+import { useAppStore } from "@/stores/app-store";
 import { format } from "date-fns";
 
 export function DashboardPage() {
@@ -26,8 +27,9 @@ export function DashboardPage() {
   const demo = cases.find((record) => record.id === DEMO_CASE_ID) ?? cases[0];
   const completed = demo?.workflow.nodes.filter((node) => node.status === "completed").length ?? 0;
   const citations = demo?.citations.length ?? 0;
-  const verified = demo?.citations.filter((citation) => citation.status === "verified").length ?? 0;
   const ethicsRejections = demo?.ethicsArguments.filter((argument) => argument.status === "rejected").length ?? 0;
+  const gate = demo ? getMotionGateStatus(demo) : null;
+  const verified = gate?.metrics.citationRecordsVerified ?? 0;
   const chartData = [
     { name: "Facts", value: demo ? 24 : 0 },
     { name: "Timeline", value: demo?.timeline.length ?? 0 },
@@ -54,7 +56,18 @@ export function DashboardPage() {
         <MetricCard label="Active cases" value={cases.filter((record) => record.status === "active").length} note={`${cases.length} browser-local total`} icon={BriefcaseBusiness} />
         <MetricCard label="Workflow progress" value={`${completed}/15`} note={demo?.workflow.status ?? "No case"} icon={Activity} />
         <MetricCard label="Citations verified" value={`${verified}/${citations}`} note="Synthetic closed records" icon={ShieldCheck} />
-        <MetricCard label="Export status" value={demo && isExportUnlocked(demo) ? "Unlocked" : "Locked"} note={demo?.approval ? `Approved v${demo.approval.version}` : "Attorney approval missing"} icon={FileCheck2} />
+        <MetricCard
+          label="Export status"
+          value={gate?.exportUnlocked ? "Unlocked" : "Locked"}
+          note={
+            gate?.exportUnlocked
+              ? `Approved v${demo?.approval?.version}`
+              : demo?.approval
+                ? "Stored approval is invalid"
+                : "Attorney approval missing"
+          }
+          icon={FileCheck2}
+        />
       </section>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
@@ -99,7 +112,7 @@ export function DashboardPage() {
             </div>
             <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-3">
               <span className="text-sm font-semibold">Attorney review</span>
-              <StatusBadge status={demo?.approval ? "approved" : "pending"} />
+              <StatusBadge status={gate?.exportUnlocked ? "approved" : demo?.approval ? "invalidated" : "pending"} />
             </div>
             {demo && (
               <Link href={`/cases/${demo.id}`} className={`${buttonVariants()} w-full`}>

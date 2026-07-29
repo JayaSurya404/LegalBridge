@@ -25,11 +25,16 @@ export function StrategyPage() {
       description="Candidate defence strategies connect fictional facts, demonstration authorities, limitations, and attorney notes. Unsupported candidates cannot enter the motion."
     >
       {record.strategies.length === 0 ? (
-        <EmptyState title="Strategy pending" description="Complete the deterministic workflow to create closed demonstration strategies." />
+        <EmptyState
+          title="No case-specific strategies are available"
+          description="Browser-created cases do not receive generated legal strategies because this frontend performs no document parsing or legal analysis. Use the preloaded synthetic matter for the closed strategy demonstration."
+        />
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
           {record.strategies.map((strategy) => {
-            const blocked = strategy.citationStatus === "blocked" || strategy.ethicsStatus === "rejected";
+            const blocked =
+              strategy.citationStatus !== "verified" ||
+              strategy.ethicsStatus !== "approved";
             return (
               <Card key={strategy.id} className={blocked ? "border-red-200" : undefined}>
                 <CardHeader className="border-b border-[var(--border)]">

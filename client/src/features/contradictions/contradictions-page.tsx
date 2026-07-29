@@ -21,7 +21,7 @@ export function ContradictionsPage() {
       eyebrow={record.reference}
       title="Contradiction matrix"
       description="Side-by-side fictional source statements surface material differences without treating them as final legal conclusions."
-      actions={
+      actions={record.contradictions.length > 0 ? (
         <label>
           <span className="sr-only">Filter contradiction severity</span>
           <select value={severity} onChange={(event) => setSeverity(event.target.value)} className="min-h-11 rounded-lg border border-[var(--border-strong)] bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--focus)]">
@@ -31,9 +31,14 @@ export function ContradictionsPage() {
             <option value="low">Low severity</option>
           </select>
         </label>
-      }
+      ) : undefined}
     >
-      {contradictions.length === 0 ? (
+      {record.contradictions.length === 0 ? (
+        <EmptyState
+          title="No contradiction comparisons are available"
+          description="Browser-created cases do not receive case-specific comparisons because this frontend does not parse selected files. Use the preloaded synthetic matter for arrest, seizure, and witness contradictions."
+        />
+      ) : contradictions.length === 0 ? (
         <EmptyState title="No contradictions match this filter" description="Choose another severity to inspect the demonstration comparisons." />
       ) : (
         <div className="grid gap-5">

@@ -34,14 +34,12 @@ function envelope<T>(data: T): ApiEnvelope<T> {
 
 export class MockLegalBridgeClient implements LegalBridgeClient {
   async signIn(request: SignInRequest): Promise<ApiEnvelope<SignInResponse>> {
+    const authenticated =
+      request.email.trim().toLowerCase() === "attorney@legalbridge.demo" &&
+      request.password === "LegalBridge@2026";
     return envelope({
-      authenticated:
-        request.email === "attorney@legalbridge.demo" &&
-        request.password === "LegalBridge@2026",
-      userEmail:
-        request.email === "attorney@legalbridge.demo"
-          ? "attorney@legalbridge.demo"
-          : undefined,
+      authenticated,
+      userEmail: authenticated ? "attorney@legalbridge.demo" : undefined,
     });
   }
 
@@ -106,8 +104,8 @@ export class MockLegalBridgeClient implements LegalBridgeClient {
 }
 
 export class HttpLegalBridgeClient implements LegalBridgeClient {
-  private unavailable(): never {
-    throw new LegalBridgeClientError(
+  private unavailable() {
+    return new LegalBridgeClientError(
       "Backend not available in this frontend checkpoint.",
       "UNAVAILABLE",
     );

@@ -36,7 +36,7 @@ export function ConfirmDialog({
         <DialogDescription className="mt-3 text-sm leading-6 text-[var(--slate)]">
           {description}
         </DialogDescription>
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <DialogPrimitiveClose />
           <DialogPrimitiveConfirm
             label={confirmLabel}
@@ -52,7 +52,7 @@ export function ConfirmDialog({
 function DialogPrimitiveClose() {
   return (
     <DialogClose asChild>
-      <Button variant="secondary">Cancel</Button>
+      <Button variant="secondary" className="w-full sm:w-auto">Cancel</Button>
     </DialogClose>
   );
 }
@@ -68,7 +68,7 @@ function DialogPrimitiveConfirm({
 }) {
   return (
     <DialogClose asChild>
-      <Button variant={destructive ? "danger" : "default"} onClick={onConfirm}>
+      <Button className="w-full sm:w-auto" variant={destructive ? "danger" : "default"} onClick={onConfirm}>
         {label}
       </Button>
     </DialogClose>

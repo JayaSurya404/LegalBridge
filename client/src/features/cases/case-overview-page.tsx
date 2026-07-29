@@ -19,8 +19,9 @@ import { StatusBadge } from "@/components/shared/status";
 import { UnknownCase } from "@/components/shared/unknown-case";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { DEMO_CASE_ID } from "@/lib/demo/seed";
 import { useCaseRecord } from "@/lib/hooks/use-case-record";
-import { isExportUnlocked } from "@/stores/app-store";
+import { getMotionGateStatus } from "@/lib/motion-gate";
 
 const moduleLinks = [
   ["Documents", "Review browser-local metadata", "/documents", FileStack],
@@ -37,14 +38,17 @@ export function CaseOverviewPage() {
   const { caseId, record } = useCaseRecord();
   if (!record) return <UnknownCase />;
   const completed = record.workflow.nodes.filter((node) => node.status === "completed").length;
-  const verified = record.citations.filter((citation) => citation.status === "verified").length;
   const rejectionApplied = record.ethicsArguments.some((argument) => argument.requiredRejection && argument.status === "rejected");
+  const gate = getMotionGateStatus(record);
+  const verified = gate.metrics.citationRecordsVerified;
   const nextAction =
     record.workflow.status !== "completed"
       ? { label: "Run deterministic workflow", href: `/cases/${caseId}/workflow` }
+      : record.ethicsArguments.length === 0
+        ? { label: "Open the preloaded analysis demo", href: `/cases/${DEMO_CASE_ID}` }
       : !rejectionApplied
         ? { label: "Complete required ethics rejection", href: `/cases/${caseId}/ethics` }
-        : !record.approval
+        : !gate.exportUnlocked
           ? { label: "Complete attorney review", href: `/cases/${caseId}/review` }
           : { label: "Open approved motion", href: `/cases/${caseId}/motion` };
 
@@ -59,12 +63,12 @@ export function CaseOverviewPage() {
       <section aria-label="Case summary metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Documents" value={record.documents.length} note={`${record.documents.filter((document) => document.status === "processed").length} processed metadata records`} icon={FileStack} />
         <MetricCard label="Workflow" value={`${completed}/15`} note={record.workflow.status} icon={Activity} />
-        <MetricCard label="Source-linked facts" value={record.synthetic ? 24 : 0} note={`${record.timeline.length} timeline events`} icon={ScrollText} />
+        <MetricCard label="Source-linked facts" value={record.timeline.length > 0 ? 24 : 0} note={`${record.timeline.length} timeline events`} icon={ScrollText} />
         <MetricCard label="Potential concerns" value={record.findings.length} note={`${record.contradictions.length} contradictions`} icon={AlertTriangle} />
         <MetricCard label="Citations" value={`${verified}/${record.citations.length}`} note="Deterministic synthetic checks" icon={ShieldCheck} />
         <MetricCard label="Ethics" value={rejectionApplied ? "Applied" : "Pending"} note="Required unsupported argument rejection" icon={Gavel} />
         <MetricCard label="Motion" value={`v${record.motionVersions.at(-1)?.version ?? 0}`} note={record.currentMotion ? "Draft for attorney review" : "Not generated"} icon={ScrollText} />
-        <MetricCard label="Export" value={isExportUnlocked(record) ? "Unlocked" : "Locked"} note={record.approval ? `Bound to ${record.approval.mockHash}` : "Attorney approval missing"} icon={LockKeyhole} />
+        <MetricCard label="Export" value={gate.exportUnlocked ? "Unlocked" : "Locked"} note={gate.exportUnlocked ? `Bound to ${record.approval?.mockHash}` : "Attorney approval required"} icon={LockKeyhole} />
       </section>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[.8fr_1.2fr]">

@@ -15,7 +15,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { MetricCard } from "@/components/shared/metric-card";
 import { StatusBadge } from "@/components/shared/status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { isExportUnlocked, useAppStore } from "@/stores/app-store";
+import { getMotionGateStatus } from "@/lib/motion-gate";
+import { useAppStore } from "@/stores/app-store";
 
 export function ObservabilityPage() {
   const cases = useAppStore((state) => state.cases);
@@ -32,7 +33,15 @@ export function ObservabilityPage() {
   })) ?? [];
   const rejections = record?.ethicsArguments.filter((argument) => argument.status === "rejected").length ?? 0;
   const edits = Math.max(0, (record?.motionVersions.length ?? 1) - 1);
-  const exportUnlocked = record ? isExportUnlocked(record) : false;
+  const gate = record ? getMotionGateStatus(record) : null;
+  const exportUnlocked = gate?.exportUnlocked ?? false;
+  const citationVerificationPercent = gate?.metrics.legalCitations
+    ? Math.round(
+        (gate.metrics.citationRecordsVerified /
+          gate.metrics.legalCitations) *
+          100,
+      )
+    : 0;
 
   return (
     <>
@@ -52,7 +61,12 @@ export function ObservabilityPage() {
       />
 
       <section aria-label="Observability metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Workflow node" value={record ? `${record.workflow.currentIndex + 1}/15` : "—"} note={currentNode?.name ?? "No workflow run"} icon={Activity} />
+        <MetricCard
+          label="Workflow node"
+          value={record ? `${record.workflow.currentIndex + 1}/15` : "—"}
+          note={currentNode ? `${currentNode.name} · ${currentNode.status}` : "No workflow run"}
+          icon={Activity}
+        />
         <MetricCard label="Simulated duration" value={`${(duration / 1000).toFixed(1)}s`} note="Completed agent durations" icon={Clock3} />
         <MetricCard label="Simulated tool calls" value={completed.length * 3} note="Fixed at 3 per completed node" icon={Gauge} />
         <MetricCard label="Retry count" value={0} note="No random failures" icon={RefreshCcw} />
@@ -90,12 +104,12 @@ export function ObservabilityPage() {
           <CardHeader><CardTitle>Case outcome counters</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {[
-              ["Extracted facts", record ? 24 : 0],
+              ["Extracted facts", record?.timeline.length ? 24 : 0],
               ["Timeline events", record?.timeline.length ?? 0],
               ["Contradictions", record?.contradictions.length ?? 0],
               ["Potential concerns", record?.findings.length ?? 0],
               ["Retrieved authorities", record?.authorities.length ?? 0],
-              ["Citation verification", record?.citations.length ? "100%" : "0%"],
+              ["Citation verification", `${citationVerificationPercent}%`],
               ["Ethics rejections", rejections],
               ["Attorney edits", edits],
             ].map(([label, value]) => (
@@ -107,7 +121,7 @@ export function ObservabilityPage() {
             <div className="grid grid-cols-2 gap-3 pt-2">
               <div className="rounded-xl border border-[var(--border)] p-3">
                 <p className="text-xs text-[var(--slate)]">Approval</p>
-                <div className="mt-2"><StatusBadge status={record?.approval ? "approved" : "pending"} /></div>
+                <div className="mt-2"><StatusBadge status={exportUnlocked ? "approved" : record?.approval ? "invalidated" : "pending"} /></div>
               </div>
               <div className="rounded-xl border border-[var(--border)] p-3">
                 <p className="text-xs text-[var(--slate)]">Export</p>

@@ -8,7 +8,7 @@ import {
   Trash2,
   UploadCloud,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CasePage } from "@/components/shared/case-page";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -26,6 +26,11 @@ const accepted: Record<string, DocumentMeta["type"]> = {
   ".pdf": "PDF",
   ".txt": "TXT",
   ".docx": "DOCX",
+};
+const acceptedMimeTypes: Record<DocumentMeta["type"], string> = {
+  PDF: "application/pdf",
+  TXT: "text/plain",
+  DOCX: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 };
 
 type PendingDocument = Omit<DocumentMeta, "id" | "addedAt">;
@@ -54,6 +59,28 @@ export function DocumentsPage() {
   const [pending, setPending] = useState<PendingDocument[]>([]);
   const [messages, setMessages] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    if (!processing) return;
+
+    let nextProgress = 0;
+    const timer = window.setInterval(() => {
+      nextProgress = Math.min(100, nextProgress + 20);
+      setProgress(nextProgress);
+
+      if (nextProgress === 100) {
+        window.clearInterval(timer);
+        processDocuments(caseId);
+        setProcessing(false);
+        toast.success("Deterministic document processing completed.");
+      }
+    }, 220);
+
+    return () => window.clearInterval(timer);
+  }, [caseId, processDocuments, processing]);
+
   if (!record) return <UnknownCase />;
 
   const selectFiles = (fileList: FileList | File[]) => {
@@ -64,47 +91,68 @@ export function DocumentsPage() {
       ...pending.map((document) => document.name.toLowerCase()),
     ]);
     const available = Math.max(0, MAX_FILES - record.documents.length - pending.length);
-    Array.from(fileList)
-      .slice(0, available)
-      .forEach((file) => {
-        const name = safeName(file.name);
-        const extension = name.includes(".")
-          ? `.${name.split(".").pop()?.toLowerCase()}`
-          : "";
-        const type = accepted[extension];
-        if (!type) {
-          errors.push(`${name || "Unnamed file"}: only PDF, TXT, and DOCX are accepted.`);
-          return;
+    let capacityMessageAdded = false;
+    Array.from(fileList).forEach((file) => {
+      const name = safeName(file.name);
+      if (
+        !name ||
+        name !== file.name ||
+        file.name.includes("/") ||
+        file.name.includes("\\")
+      ) {
+        errors.push(
+          `${file.name || "Unnamed file"}: the filename is empty, unsafe, or longer than 180 characters.`,
+        );
+        return;
+      }
+      const extension = name.includes(".")
+        ? `.${name.split(".").pop()?.toLowerCase()}`
+        : "";
+      const type = accepted[extension];
+      if (!type) {
+        errors.push(`${name || "Unnamed file"}: only PDF, TXT, and DOCX are accepted.`);
+        return;
+      }
+      if (
+        file.type &&
+        file.type.toLowerCase() !== acceptedMimeTypes[type]
+      ) {
+        errors.push(
+          `${name}: the filename extension and browser-reported file type do not match.`,
+        );
+        return;
+      }
+      if (file.size === 0) {
+        errors.push(`${name}: empty files are not accepted.`);
+        return;
+      }
+      if (file.size > MAX_SIZE) {
+        errors.push(`${name}: exceeds the 10 MB frontend-only limit.`);
+        return;
+      }
+      if (known.has(name.toLowerCase())) {
+        errors.push(`${name}: duplicate file metadata was not added.`);
+        return;
+      }
+      if (next.length >= available) {
+        if (!capacityMessageAdded) {
+          errors.push(
+            `Only ${available} more file${available === 1 ? "" : "s"} can be selected; the frontend limit is ${MAX_FILES}.`,
+          );
+          capacityMessageAdded = true;
         }
-        if (file.size === 0) {
-          errors.push(`${name}: empty files are not accepted.`);
-          return;
-        }
-        if (file.size > MAX_SIZE) {
-          errors.push(`${name}: exceeds the 10 MB frontend-only limit.`);
-          return;
-        }
-        if (known.has(name.toLowerCase())) {
-          errors.push(`${name}: duplicate file metadata was not added.`);
-          return;
-        }
-        known.add(name.toLowerCase());
-        next.push({
-          name,
-          type,
-          mimeType: file.type || {
-            PDF: "application/pdf",
-            TXT: "text/plain",
-            DOCX: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          }[type],
-          size: file.size,
-          status: "selected",
-          sourceLabel: `Local selection · ${type}`,
-        });
+        return;
+      }
+      known.add(name.toLowerCase());
+      next.push({
+        name,
+        type,
+        mimeType: file.type || acceptedMimeTypes[type],
+        size: file.size,
+        status: "selected",
+        sourceLabel: `Local selection · ${type}`,
       });
-    if (Array.from(fileList).length > available) {
-      errors.push(`Only ${available} more file${available === 1 ? "" : "s"} can be selected; the frontend limit is ${MAX_FILES}.`);
-    }
+    });
     setPending((current) => [...current, ...next]);
     setMessages(errors);
     if (next.length) toast.success(`${next.length} file metadata record${next.length === 1 ? "" : "s"} ready to add.`);
@@ -125,8 +173,46 @@ export function DocumentsPage() {
       eyebrow={record.reference}
       title="Documents"
       description="Select source files for frontend validation and simulated processing. Binary contents are never uploaded or persisted."
-      actions={unprocessed ? <Button onClick={() => { processDocuments(caseId); toast.success("Deterministic document processing completed."); }}><LoaderCircle className="size-4" aria-hidden="true" /> Simulate processing</Button> : undefined}
+      actions={unprocessed ? (
+        <Button
+          disabled={processing}
+          onClick={() => {
+            setProgress(0);
+            setProcessing(true);
+          }}
+        >
+          <LoaderCircle className={`size-4 ${processing ? "animate-spin" : ""}`} aria-hidden="true" />
+          {processing ? `Simulating ${progress}%` : "Simulate processing"}
+        </Button>
+      ) : undefined}
     >
+      {processing && (
+        <div
+          className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-950"
+          aria-live="polite"
+        >
+          <div className="flex items-center justify-between gap-3 text-sm font-semibold">
+            <span>Simulated browser-local processing</span>
+            <span>{progress}%</span>
+          </div>
+          <div
+            className="mt-3 h-2 overflow-hidden rounded-full bg-blue-100"
+            role="progressbar"
+            aria-label="Simulated document processing progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress}
+          >
+            <div
+              className="h-full rounded-full bg-blue-700 transition-[width]"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs leading-5">
+            No file is uploaded or parsed. This progress is a deterministic frontend demonstration.
+          </p>
+        </div>
+      )}
       <div className="grid gap-6 xl:grid-cols-[.8fr_1.2fr]">
         <Card>
           <CardHeader>
@@ -160,14 +246,14 @@ export function DocumentsPage() {
               </Button>
             </div>
             <div className="mt-4 space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-xs leading-5 text-blue-950">
-              <p>Files remain in this browser session.</p>
+              <p>Only safe metadata remains in browser state; file contents are discarded after selection.</p>
               <p>No backend upload occurs.</p>
               <p>Processing shown here is simulated.</p>
             </div>
             {messages.length > 0 && (
               <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4" role="alert">
                 <p className="text-sm font-semibold text-red-900">Some files were not selected</p>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-red-800">
+                <ul className="mt-2 list-disc space-y-1 break-all pl-5 text-xs leading-5 text-red-800">
                   {messages.map((message) => <li key={message}>{message}</li>)}
                 </ul>
               </div>
