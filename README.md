@@ -2,54 +2,64 @@
 
 Problem statement: `SDGGAIP016`
 
-LegalBridge India is an attorney-assistance hackathon prototype aligned with SDG 16.3 and SDG 10.3. The combined Phase 5–6 checkpoint adds real private document storage and source extraction to the existing authenticated Next.js and FastAPI application while keeping legal analysis explicitly synthetic.
+LegalBridge India is an attorney-assistance hackathon prototype aligned with SDG 16.3 and SDG 10.3. The current checkpoint uses this verified data path:
 
-> **Legal disclaimer:** This is not an official government service, final legal advice, a replacement for professional judgment, or an automatic court-filing system. Extracted source text is not a legal finding. Every legal output requires independent attorney verification.
+```text
+Next.js → FastAPI REST API → async SQLAlchemy → Supabase PostgreSQL
+                              ↘ ignored local private binary storage
+```
+
+> **Legal disclaimer:** This is not a government service, final legal advice, a replacement for professional judgment, or an automatic court-filing system. Extracted source text is not a legal finding. Every legal output requires independent attorney verification.
 
 - “Autonomous until review, never autonomous at filing.”
 - “No source, no legal claim. No lawyer approval, no export.”
 
 ## Current capabilities
 
-- Real organisation-scoped authentication, rotating sessions, cases, document records, source pages, and audit persistence.
-- Streamed multipart PDF, DOCX, and TXT uploads into ignored private backend storage.
-- Server-side 50 MB enforcement, safe filename checks, extension/MIME agreement, content-signature validation, authoritative SHA-256, and duplicate rejection.
-- PyMuPDF physical-page extraction for PDF.
-- Ordered python-docx extraction into clearly labelled logical DOCX sections.
-- Controlled TXT decoding into form-feed or deterministic logical text pages.
-- Optional page-specific Tesseract OCR; normal text extraction does not depend on Tesseract.
-- Authenticated source viewing, original download, reprocessing, and deletion.
-- Three generated, privately stored, parsed, synthetic demonstration documents for backend case `LB-DEMO-2026-001`.
-- The preserved deterministic synthetic legal-analysis walkthrough, Ethics Auditor, Citation Firewall, version-bound attorney approval, approval invalidation, and export gate.
+- Supabase PostgreSQL persistence through an SSL-required IPv4 Session Pooler.
+- Existing organisation-scoped Argon2 login, JWT access tokens, rotating refresh tokens, RBAC, and isolation remain in FastAPI; Supabase Auth is not used.
+- Alembic-managed organisations, users, auth sessions, cases, documents, extracted pages, and audit events.
+- An authenticated, organisation-scoped `GET /api/v1/dashboard/summary` aggregate endpoint.
+- Real PDF, DOCX, and TXT validation, ignored private binary storage, SHA-256 computation, extraction, download, reprocessing, and deletion.
+- A fully synthetic `legalbridge-main` jury workspace with 5 staff, 16 cases after verification, 50 documents, 184 extracted pages, and over 250 audit events.
+- The flagship `LB-MAIN-2026-001` case has eight generated and processed sources.
+- The deterministic synthetic legal-analysis walkthrough and its attorney approval/export gate remain separate from extracted data.
 
-Source extraction does **not** produce case facts, timelines, contradictions, legal findings, research, citations, strategies, motions, or filing actions.
+Source extraction does **not** create facts, timelines, legal findings, research, citations, strategies, motions, or filing actions.
 
 ## Requirements
 
 - Node.js 20.9 or newer
 - pnpm 10 or newer
-- Python 3.10 or newer; the local environment uses Python 3.12
+- Python 3.10 or newer
 - Repository-local `server/.venv`
-- A modern browser with `sessionStorage`, `localStorage`, and Web Crypto
+- A hosted Supabase PostgreSQL project for the jury dataset
 
-Tesseract is optional and is not installed globally by this project.
+Tesseract remains optional and is not installed globally by this project.
 
-## Configure
+## Configuration
 
-The ignored `client/.env.local` should contain:
+The ignored `client/.env.local` remains:
 
 ```dotenv
 NEXT_PUBLIC_DATA_MODE=http
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-The deterministic isolated frontend provider remains available with `NEXT_PUBLIC_DATA_MODE=mock`.
+The ignored `server/.env` holds the SQLAlchemy async pooler URL and backend secrets. It must use values equivalent to:
 
-Copy `server/.env.example` to ignored `server/.env` only for local overrides. The default private storage root is `server/data/uploads`; it is ignored by Git and never exposed through API responses.
+```dotenv
+DATABASE_URL=postgresql+asyncpg://postgres.PROJECT_REF:URL_ENCODED_PASSWORD@SESSION_POOLER:5432/postgres
+DATABASE_SSL=require
+DATABASE_POOL_SIZE=5
+DATABASE_MAX_OVERFLOW=5
+DATABASE_POOL_TIMEOUT=30
+DATABASE_POOL_RECYCLE=300
+```
 
-Do not place secrets in `NEXT_PUBLIC_*`.
+Never put a database URL, password, access token, service-role key, or other secret in `NEXT_PUBLIC_*` or tracked documentation. Intentional SQLite fallback remains available by setting an explicit `sqlite+aiosqlite://` URL with `DATABASE_SSL=disable`.
 
-## Install and initialize
+## Install, initialize, and run
 
 ```powershell
 pnpm install
@@ -57,65 +67,60 @@ server\.venv\Scripts\python.exe -m pip install -r server\requirements-dev.txt
 powershell -ExecutionPolicy Bypass -File .\scripts\init_backend_data.ps1
 ```
 
-The initialization command applies migrations, creates the synthetic organisation/users/case, generates three valid synthetic files, stores them through the same private storage service used by uploads, extracts their source pages, and remains idempotent.
+The initializer refuses non-PostgreSQL configuration, applies Alembic migrations, repairs the primary workspace and login, generates and processes 50 synthetic sources, verifies minimum counts, and is idempotent.
 
-## Start the full stack
+Start each service:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start_fullstack.ps1
+Set-Location D:\LegalBridge\server
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+Set-Location D:\LegalBridge
+pnpm dev
 ```
 
 - Frontend: `http://localhost:3000`
 - Backend Swagger: `http://127.0.0.1:8000/docs`
 
-The helper starts FastAPI and Next.js in separate PowerShell windows only when ports 8000 and 3000 are free.
+## Primary jury login
 
-## Development credentials
+| Workspace | Email | Password | Role |
+| --- | --- | --- | --- |
+| `legalbridge-main` | `legalbridge@legalbridge.demo` | `legalbridge@2026` | Admin |
 
-Organisation workspace: `legalbridge-demo`
+This advertised development account is database-backed. The frontend always calls `POST /api/v1/auth/login`; it does not compare credentials locally. Attorney review PIN for the closed synthetic walkthrough: `2026`.
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Attorney | `attorney@legalbridge.demo` | `LegalBridge@2026` |
-| Admin | `admin@legalbridge.demo` | `LegalBridgeAdmin@2026` |
+## Supabase Table Editor
 
-Attorney review PIN for the closed synthetic analysis walkthrough: `2026`.
+Open the `legalbridge-main` project, choose **Table Editor**, and select the `public` schema. The relevant tables are:
 
-## Jury demonstration
+- `organizations`
+- `users`
+- `auth_sessions`
+- `cases`
+- `documents`
+- `document_pages`
+- `audit_events`
+- `alembic_version`
 
-1. Run the initialization command, then start the full stack.
-2. Sign in as the demonstration attorney.
-3. Open case `LB-DEMO-2026-001` and choose **Documents**.
-4. Show the three real stored sources: a multi-page PDF court transcript, structured DOCX police report, and multi-section TXT arrest memo.
-5. Expand source pages and point out physical PDF labels versus logical DOCX/TXT labels.
-6. Show server-authoritative SHA-256, parser, page count, character count, status, download, reprocess, copy-text, and delete controls.
-7. Upload another synthetic TXT, PDF, or DOCX file and show validation, private storage, extraction, and audit events.
-8. Explain that an image-only PDF becomes `ocr_required` when Tesseract is unavailable; no text is fabricated.
-9. Create a new case and show that extracted pages do not create legal analysis.
-10. Return to the designated demonstration case for the separately labelled closed synthetic workflow, ethics review, motion versioning, attorney approval, invalidation, and export gate.
+Do not expose the `users.password_hash` column in screenshots.
 
-## Validation and extraction boundary
-
-- PDF files must start with `%PDF-`; each physical page receives a persisted source-page record.
-- DOCX files must be safe ZIP containers with required Office entries and bounded expansion; their sections are logical, not physical pages.
-- TXT files use controlled BOM/UTF-8/UTF-16/charset detection and reject clearly binary content.
-- The server computes SHA-256 while streaming and rejects duplicate content within a case with HTTP 409.
-- Uploaded originals remain downloadable even when extraction fails.
-- OCR is optional. If disabled or unavailable, text PDFs still process and image-only pages truthfully require OCR.
-- Audit metadata excludes passwords, tokens, local paths, and extracted document text.
-- User uploads, extracted local user data, databases, secrets, and generated binaries remain ignored.
-
-## Verification commands
+## Verification
 
 ```powershell
-pnpm typecheck
-pnpm lint
-pnpm build
-powershell -ExecutionPolicy Bypass -File .\scripts\smoke_phase5_6.ps1 -Port 8766
+server\.venv\Scripts\python.exe -m ruff check server\app server\tests server\alembic
+server\.venv\Scripts\python.exe -m pytest server\tests -q --basetemp=D:\LegalBridge\.tmp\pytest-final
+pnpm check
+
+Set-Location D:\LegalBridge\server
+.\.venv\Scripts\python.exe -m app.scripts.verify_main_api
+.\.venv\Scripts\python.exe -m app.scripts.verify_main_database
 ```
 
-See [server/README.md](server/README.md) for backend details and [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for exact verified results.
+The two live verification modules print only safe statuses, IDs, engine identity, revisions, and counts. They never print tokens, password hashes, the database password, or the full connection URL.
+
+See [server/README.md](server/README.md) for backend detail and [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact verified results.
 
 ## Not implemented
 
-Statutory corpus ingestion, precedent corpus ingestion, retrieval, embeddings, pgvector, RAG, AI providers, LangGraph, real multi-agent reasoning, Legal Copilot, citation verification, motion generation from uploaded documents, attorney digital signatures, and court filing remain outside this checkpoint. Automatic filing is prohibited.
+Statutory or precedent corpus ingestion, retrieval, embeddings, pgvector, RAG, AI providers, LangGraph, real multi-agent reasoning, Legal Copilot, generated legal analysis from uploaded sources, digital signatures, and court filing remain outside this checkpoint. Automatic filing is prohibited.

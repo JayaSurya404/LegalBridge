@@ -367,7 +367,15 @@ async def bootstrap_demo_documents(database: Database, settings: Settings) -> in
 
 async def main() -> None:
     settings = get_settings()
-    database = Database(settings.database_url, echo=settings.sql_echo)
+    database = Database(
+        settings.database_url,
+        echo=settings.sql_echo,
+        ssl_mode=settings.database_ssl,
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+        pool_timeout=settings.database_pool_timeout,
+        pool_recycle=settings.database_pool_recycle,
+    )
     try:
         count = await bootstrap_demo_documents(database, settings)
     finally:

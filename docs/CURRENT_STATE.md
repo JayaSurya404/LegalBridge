@@ -5,167 +5,190 @@ Updated: 2026-07-29
 Repository: `D:\LegalBridge`
 
 Branch: `main`
+Checkpoint: hosted Supabase PostgreSQL persistence and large synthetic jury dataset verified
 
-Checkpoint: combined Phase 5–6 complete — real private binary storage and source extraction
+## Product and architecture boundary
 
-## Product boundary
+The verified runtime path is:
 
-LegalBridge India remains an attorney-assistance hackathon prototype for problem statement `SDGGAIP016`, aligned with SDG 16.3 and SDG 10.3.
+```text
+Next.js frontend
+→ FastAPI REST API
+→ async SQLAlchemy
+→ Supabase PostgreSQL (SSL-required Session Pooler)
+```
 
-- “Autonomous until review, never autonomous at filing.”
-- “No source, no legal claim. No lawyer approval, no export.”
+Supabase is only the hosted PostgreSQL database. Existing FastAPI Argon2 authentication, JWT access tokens, rotating refresh tokens, RBAC, and organisation isolation remain authoritative. The frontend has no database password, connection URL, service-role key, access token, or direct database access.
 
-Binary storage, source extraction, and extracted-page persistence are real. Legal analysis is not generated from uploaded documents. The facts, timeline, contradictions, potential procedural concerns, authorities, strategies, citations, motion, workflow execution, token/cost metrics, and related analysis audit entries shown for the designated demonstration case remain closed deterministic synthetic fixtures requiring attorney verification.
+Original document binaries remain in ignored local private storage. PostgreSQL stores document metadata, authoritative SHA-256 values, extraction status, and extracted pages.
 
-## Preserved Phase 1–4 state
+The deterministic legal-analysis walkthrough remains closed synthetic fixture data. No corpus, retrieval, embeddings, pgvector, RAG, model provider, LangGraph, real agent reasoning, generated legal analysis, digital signature, or filing phase was started.
 
-- The responsive Next.js App Router workspace, accessibility behavior, deterministic synthetic legal-analysis views, Ethics Auditor, Motion Studio, Citation Firewall, version-bound attorney approval, approval invalidation, print gate, observability, and display settings remain available.
-- Organisation isolation, users and RBAC, Argon2 password hashing, access tokens, rotating and revocable refresh sessions, cases, audit events, async SQLAlchemy persistence, SQLite development storage, PostgreSQL-compatible modeling, Alembic migrations, controlled errors, request IDs, CORS, readiness, and capability reporting remain intact.
-- Real FastAPI sign-in, browser session restoration, refresh-token rotation, persistent case listing/creation, audit synchronization, and the HTTP/mock data-provider boundary remain intact.
-- The existing database was migrated in place. Existing metadata-only document records remain valid with `metadata_only` extraction status.
-- The existing demonstration case is preserved and matched by case number `LB-DEMO-2026-001`.
+## Hosted project
 
-## Combined Phase 5–6 backend
+- Project: `legalbridge-main` (created, healthy)
+- Project reference: `scww…ovlm`
+- Region: South Asia (Mumbai), `ap-south-1`
+- Pooler: `aws***-1.pooler.supabase.com:5432`
+- Engine: PostgreSQL 17.6
+- Database/schema: `postgres` / `public`
+- Alembic head: `0003_postgresql`
+- Connection configuration: ignored `server/.env`, SSL required, bounded pool settings
+- SQLite fallback: preserved and available only through an explicit SQLite URL with SSL disabled
 
-### Private storage and validation
+## Jury workspace
 
-- Multipart uploads stream in bounded chunks to a temporary staging file beneath the configured storage root.
-- The default ignored storage root is `server/data/uploads`.
-- Final keys use opaque server identifiers: `{organization_id}/{case_id}/{document_id}/original.{extension}`.
-- Original filenames are metadata only and never become path components or API-exposed storage locations.
-- A validated staging file is atomically moved to its final location.
-- Failure cleanup removes staging files; database failure cleanup removes the stored binary.
-- Download, reprocessing, and deletion resolve paths through the same root-contained storage service.
-- The server enforces filename safety, supported extension, declared MIME type, non-empty input, and a configurable 50 MB default while streaming.
-- PDF requires `%PDF-`; DOCX requires a safe ZIP container with `[Content_Types].xml` and `word/document.xml`; TXT uses controlled binary checks and decoding.
-- DOCX ZIP entry count, expanded size, and compression-ratio limits reduce archive-bomb risk.
-- SHA-256 is computed by the server while streaming and is authoritative.
-- Duplicate content within one case returns HTTP 409.
+- Organisation: `LegalBridge Main Jury Workspace`
+- Slug: `legalbridge-main`
+- Organisation ID: `c1651c9e-2185-444d-8fb7-45ce72017c7f`
+- Primary user ID: `623a9c07-357c-44ab-be50-be18e4b459a6`
+- Primary login: `legalbridge@legalbridge.demo` / `legalbridge@2026`
+- Role: admin
+- Supporting staff: 4 (two attorneys, one reviewer, one additional admin)
 
-### Extraction and persistence
+The primary password is stored only as an Argon2 hash. Supporting passwords are random and are not advertised.
 
-- Migration `0002_phase5_6_document_ingestion` adds storage, parser, status, count, error, and timestamp fields without destroying existing document records.
-- `document_pages` persists organisation, case, document, 1-based page number, label, normalized extracted text, character count, extraction method, and timestamps.
-- Document/page foreign keys cascade on deletion, and document/page-number uniqueness is enforced.
-- PyMuPDF extracts one persisted record for every physical PDF page.
-- PDF pages without meaningful embedded text are OCRed only when OCR is enabled and Tesseract is available. Otherwise they retain empty text and report `ocr_required`; mixed documents report `partially_processed`.
-- python-docx extracts headings, paragraphs, and tables in stable document order into explicitly labelled logical sections. These are not represented as physical pages.
-- TXT decoding prefers BOM-aware UTF-8, UTF-8, confidently detected UTF-16, and a controlled charset-normalizer fallback. Form feeds define logical pages when present; otherwise deterministic text chunks are used.
-- Page-count and per-page/total character limits bound extraction. Parser failures become safe status messages without browser-visible or database-persisted stack traces.
-- Extraction performs no legal reasoning and never fabricates source text.
+## Seed and persistence results
 
-### API and permissions
+The first and second initializer runs produced identical seeded totals:
 
-- `GET /api/v1/cases/{case_id}/documents`
-- `POST /api/v1/cases/{case_id}/documents` for compatible metadata-only registration
-- `POST /api/v1/cases/{case_id}/documents/upload`
-- `GET /api/v1/cases/{case_id}/documents/{document_id}`
-- `GET /api/v1/cases/{case_id}/documents/{document_id}/download`
-- `POST /api/v1/cases/{case_id}/documents/{document_id}/reprocess`
-- `DELETE /api/v1/cases/{case_id}/documents/{document_id}`
+- Cases: 15
+- Documents: 50
+- Extracted source pages: 184
+- Audit events: 251
+- Flagship documents: 8
+- Staff users: 5 total
 
-All document operations enforce organisation and case isolation. Reviewers may list, inspect, and download. Attorneys and administrators may additionally upload, reprocess, and delete.
+The browser then created exactly one additional case:
 
-Audit events cover upload start, validation failure, storage completion, extraction start, processed/partial/OCR-required/failed outcomes, download, reprocessing, deletion, and demonstration bootstrap. Audit metadata does not include tokens, passwords, storage paths, or extracted text.
+- `LB-MAIN-LOCAL-VERIFY-001`
+- `Supabase Persistence Verification`
+- PostgreSQL ID: `355588df-e8dc-4426-bdbf-20cdd200e1e0`
 
-## Demonstration sources
+Final safe SQL counts after API/browser verification:
 
-The idempotent backend initializer now generates, stores, extracts, and persists three valid synthetic files for `LB-DEMO-2026-001`:
+| Table | Rows |
+| --- | ---: |
+| `organizations` | 1 |
+| `users` | 5 |
+| `auth_sessions` | 12 at the captured SQL check |
+| `cases` | 16 |
+| `documents` | 50 |
+| `document_pages` | 184 |
+| `audit_events` | 264 at the captured SQL check |
 
-1. A three-page synthetic PDF court transcript
-2. A structured synthetic DOCX police report with headings and tables
-3. A multi-section synthetic TXT arrest memo
+Auth-session and audit counts continue to grow with subsequent login/logout verification.
 
-Every document identifies itself as fictional hackathon data, not an official record. The bootstrap uses the production storage and extraction services, computes real SHA-256 values, and does not duplicate records when rerun.
+## Flagship case
 
-Exact command:
+`LB-MAIN-2026-001`, **Comprehensive Synthetic Defence Demonstration**, is active and has eight processed synthetic originals:
+
+1. Multi-page PDF court transcript
+2. DOCX police report
+3. TXT arrest memo
+4. PDF witness statement
+5. DOCX seizure record
+6. TXT medical observation
+7. PDF identification-procedure record
+8. DOCX electronic-evidence inventory
+
+All binaries were generated as valid files, visibly marked fictional, passed through private storage and real extraction, and produced 30 source pages for the flagship case.
+
+## API verification
+
+`python -m app.scripts.verify_main_api` safely verified:
+
+- Login: HTTP 200; access and refresh tokens returned but never printed
+- `/auth/me`: HTTP 200; primary email; admin role
+- Cases: 16, including one and only one persistence-verification case
+- Dashboard: 16 cases, 50 documents, 184 pages, more than 250 audits
+- Flagship documents: 8
+- Document detail: real extracted pages returned
+- Original download: HTTP 200 with non-empty original bytes
+- Refresh rotation: HTTP 200
+- Old refresh-token reuse: HTTP 401
+- Logout: HTTP 204
+- Revoked refresh-token reuse: HTTP 401
+
+The clean backend was restarted after the frontend-created case. A new process on port 8000 returned the same 16 cases and the verification case exactly once.
+
+## Frontend verification
+
+Chrome verified:
+
+- Primary login reached FastAPI and displayed the admin role.
+- Dashboard displayed PostgreSQL aggregates: 16 total cases, 5 active, 50 documents, 50 processed, 184 pages, and live audit totals.
+- Cases displayed all seeded records plus the single verification case.
+- The flagship used its real PostgreSQL ID.
+- Documents displayed eight real records and 30 pages for the flagship.
+- The source viewer opened persisted logical DOCX sections.
+- Browser refresh restored the session.
+- Backend restart preserved the session and verification case.
+- Frontend restart preserved the session and verification case.
+- Frontend logout returned to sign-in successfully.
+- The verified dashboard was reopened for handoff.
+
+A localhost issue found during verification was fixed: Next.js now permits the `127.0.0.1` development origin, both localhost origins are allowed by FastAPI CORS, and the sign-in form uses a POST fallback so credentials cannot enter a query string if JavaScript is unavailable.
+
+## Supabase Table Editor
+
+The authenticated Table Editor visibly confirmed the `public` schema and these tables:
+
+- `alembic_version`
+- `organizations`
+- `users`
+- `auth_sessions`
+- `cases`
+- `documents`
+- `document_pages`
+- `audit_events`
+
+Do not expose the `users.password_hash` column in screenshots.
+
+## Commands
+
+Initialize or repair hosted data:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\init_backend_data.ps1
 ```
 
-The command applies Alembic migrations, runs the existing base bootstrap, then runs the document bootstrap. It stops on failure.
-
-## Frontend integration
-
-- The existing Phase 4 API client, session refresh flow, contracts, mappers, and Zustand store now handle multipart upload, document detail, source pages, original-file blobs, and reprocessing.
-- Browser SHA-256 is preliminary progress only; displayed persisted metadata comes from the server-authoritative digest.
-- The Documents workspace validates selections, uploads actual bytes, shows deterministic progress, and surfaces structured 400/403/404/409/413/422 errors.
-- Document summaries show extraction status, page count, character count, parser, binary availability, and actionable error/OCR messages.
-- Attorneys and administrators receive download, reprocess, and delete controls; reviewer restrictions are explained.
-- The source viewer expands persisted physical PDF pages or clearly labelled logical DOCX/TXT sections, supports text copying, and represents empty text truthfully.
-- Refresh resynchronizes documents and audit events from FastAPI.
-- Case and dashboard summaries use backend document records for document, processed, OCR-required, failed, and extracted-page counts.
-- Newly uploaded documents do not receive synthetic analysis. The closed synthetic workflow remains isolated to the designated demonstration case.
-
-## Optional OCR
-
-- `LEGALBRIDGE_OCR_ENABLED` defaults to `false`.
-- `LEGALBRIDGE_TESSERACT_COMMAND` may point to an already installed Tesseract executable.
-- The Python wrapper is installed in `server/.venv`; Tesseract itself was not installed globally.
-- Text PDF, DOCX, and TXT processing works without Tesseract.
-- When OCR is unavailable, the system does not claim OCR occurred or invent text.
-
-## Local commands
-
-Initialize or refresh demo data:
+Start the backend:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\init_backend_data.ps1
+Set-Location D:\LegalBridge\server
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Start the full stack:
+Start the frontend:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start_fullstack.ps1
+Set-Location D:\LegalBridge
+pnpm dev
 ```
 
-Run the temporary-port ingestion smoke:
+Safe live verification:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke_phase5_6.ps1 -Port 8766
+Set-Location D:\LegalBridge\server
+.\.venv\Scripts\python.exe -m app.scripts.verify_main_api
+.\.venv\Scripts\python.exe -m app.scripts.verify_main_database
 ```
 
-The smoke script starts a hidden FastAPI process on a free port from 8765–8799, signs in, creates a clearly synthetic case, uploads real TXT bytes, verifies persisted extraction text, downloads byte-equal content, verifies duplicate rejection, deletes the document, archives the case, deletes its temporary file, and stops the exact process in `finally`.
+## Final automated checks
 
-## Verified results
+- Ruff: passed, `All checks passed!`
+- Backend pytest: 31 tests passed after the new hosted-configuration, aggregate, bootstrap, and isolation tests
+- Frontend type-check: passed
+- Frontend lint: passed with zero warnings
+- Frontend production build: passed with Next.js 16.2.12
+- `pnpm check`: passed
+- Alembic: `0003_postgresql (head)` on Supabase
+- Initializer rerun: identical counts, no duplicates
 
-Verification completed on 2026-07-29:
+## Repository safety
 
-- Dependency installation: the exact Phase 5–6 packages were installed only in `server/.venv`.
-- Alembic: migration `0002_phase5_6_document_ingestion` applied successfully to the preserved local database.
-- Demo bootstrap: passed and reported three demonstration document records; repeat execution is covered by the backend idempotency test.
-- Ruff safe fixes: completed; two safe fixes were applied.
-- Ruff formatter: completed; five Python files were formatted.
-- Final Ruff: `server/.venv/Scripts/python.exe -m ruff check --no-cache app tests` — passed, `All checks passed!`
-- Backend pytest: `server/.venv/Scripts/python.exe -m pytest tests --basetemp C:\tmp\legalbridge-phase5-6-pytest-019fad6f` — 24 passed with 6 third-party Starlette/PyMuPDF deprecation warnings in 10.02 seconds.
-- Frontend type-check: `pnpm typecheck` — passed.
-- Frontend lint: `pnpm lint` — passed with zero warnings.
-- Frontend production build: `pnpm build` — passed with Next.js 16.2.12 using the HTTP `.env.local`.
-- Live smoke: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke_phase5_6.ps1 -Port 8766` — passed on `http://127.0.0.1:8766`; upload, extraction, persisted pages, byte-equal download, duplicate HTTP 409, deletion, archival, and cleanup were verified.
-- No browser automation was run, as requested.
-- The smoke process stopped successfully; ports 8000 and 8766 were inactive at final inspection. Port 3000 had an existing active listener and was not started or altered by the Phase 5–6 verification.
-- `git diff --check` passed; its only output was the repository's existing Windows LF-to-CRLF conversion notices.
-
-## Explicitly not implemented
-
-- Statutory corpus or precedent corpus ingestion/retrieval
-- Embeddings, pgvector, hybrid search, or RAG
-- AI/model providers or Gemini calls
-- LangGraph or real backend multi-agent reasoning
-- Legal Copilot or legal analysis derived from uploaded sources
-- Citation verification
-- Motion generation from uploaded documents
-- Attorney digital signatures
-- Automatic court filing
-- Docker or cloud deployment
-
-These belong to later phases. Combined Phase 7–8 was not started.
-
-## Repository state
-
-- Repository `D:\LegalBridge`, `.git`, branch `main`, history, and remote `origin` (`https://github.com/JayaSurya404/LegalBridge.git`) were preserved.
-- The working tree intentionally contains unstaged combined Phase 5–6 backend, frontend, migration, script, test, ignore, and documentation changes.
-- `server/data/`, uploaded/generated binaries, extracted local user data, the SQLite database, `server/.env`, `server/.venv/`, `server/*.egg-info/`, Python/test caches, local backups, and `client/.env.local` are ignored.
-- No `server/legalbridge.egg-info` directory or smoke temporary directory is present.
-- No commit, stage, push, pull, merge, rebase, branch change, or remote change occurred.
+- Repository root, `.git`, branch `main`, history, and `origin` were preserved.
+- Existing SQLite database and uploaded documents were not deleted.
+- `server/.env`, `client/.env.local`, private storage, databases, virtual environments, generated binaries, logs, caches, and Supabase credentials remain ignored.
+- No stage, commit, push, pull, merge, rebase, branch change, or remote change occurred.

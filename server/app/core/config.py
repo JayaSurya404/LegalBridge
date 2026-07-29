@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SERVER_ROOT = Path(__file__).resolve().parents[2]
@@ -20,6 +20,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        populate_by_name=True,
     )
 
     app_name: str = "LegalBridge India API"
@@ -28,11 +29,57 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=1, le=65535)
     cors_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:3000"],
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ],
     )
     log_level: Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"] = "INFO"
     docs_enabled: bool = True
-    database_url: str = "sqlite+aiosqlite:///./legalbridge.db"
+    database_url: str = Field(
+        default="sqlite+aiosqlite:///./legalbridge.db",
+        validation_alias=AliasChoices("DATABASE_URL", "LEGALBRIDGE_DATABASE_URL"),
+    )
+    database_ssl: Literal["disable", "require"] = Field(
+        default="disable",
+        validation_alias=AliasChoices("DATABASE_SSL", "LEGALBRIDGE_DATABASE_SSL"),
+    )
+    database_pool_size: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        validation_alias=AliasChoices(
+            "DATABASE_POOL_SIZE",
+            "LEGALBRIDGE_DATABASE_POOL_SIZE",
+        ),
+    )
+    database_max_overflow: int = Field(
+        default=5,
+        ge=0,
+        le=20,
+        validation_alias=AliasChoices(
+            "DATABASE_MAX_OVERFLOW",
+            "LEGALBRIDGE_DATABASE_MAX_OVERFLOW",
+        ),
+    )
+    database_pool_timeout: int = Field(
+        default=30,
+        ge=1,
+        le=120,
+        validation_alias=AliasChoices(
+            "DATABASE_POOL_TIMEOUT",
+            "LEGALBRIDGE_DATABASE_POOL_TIMEOUT",
+        ),
+    )
+    database_pool_recycle: int = Field(
+        default=300,
+        ge=30,
+        le=3600,
+        validation_alias=AliasChoices(
+            "DATABASE_POOL_RECYCLE",
+            "LEGALBRIDGE_DATABASE_POOL_RECYCLE",
+        ),
+    )
     sql_echo: bool = False
     access_token_minutes: int = Field(default=15, ge=1, le=60)
     refresh_token_days: int = Field(default=7, ge=1, le=30)
@@ -90,6 +137,11 @@ class Settings(BaseSettings):
             and self.jwt_secret == DEVELOPMENT_JWT_SECRET
         ):
             raise ValueError("Production mode requires a non-default LEGALBRIDGE_JWT_SECRET.")
+        if self.database_url.startswith("postgresql+asyncpg://"):
+            if self.database_ssl != "require":
+                raise ValueError("PostgreSQL connections require DATABASE_SSL=require.")
+        elif self.database_ssl != "disable":
+            raise ValueError("SQLite connections require DATABASE_SSL=disable.")
         return self
 
 

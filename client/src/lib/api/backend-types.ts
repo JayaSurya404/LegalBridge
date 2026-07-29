@@ -137,6 +137,22 @@ export interface BackendAuditEvent {
   updated_at: string;
 }
 
+export interface BackendDashboardSummary {
+  total_cases: number;
+  active_cases: number;
+  review_cases: number;
+  draft_cases: number;
+  closed_cases: number;
+  archived_cases: number;
+  total_documents: number;
+  processed_documents: number;
+  ocr_required_documents: number;
+  failed_documents: number;
+  extracted_source_pages: number;
+  total_audit_events: number;
+  recent_audit_events: BackendAuditEvent[];
+}
+
 export interface BackendValidationDetail {
   location: string;
   message: string;

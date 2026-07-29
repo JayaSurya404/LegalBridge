@@ -52,6 +52,5 @@ else {
 Write-Host ""
 Write-Host "Frontend: http://localhost:3000"
 Write-Host "Backend Swagger: http://127.0.0.1:8000/docs"
-Write-Host "Workspace: legalbridge-demo"
-Write-Host "Attorney: attorney@legalbridge.demo / LegalBridge@2026"
-Write-Host "Admin: admin@legalbridge.demo / LegalBridgeAdmin@2026"
+Write-Host "Workspace: legalbridge-main"
+Write-Host "Primary admin: legalbridge@legalbridge.demo / legalbridge@2026"

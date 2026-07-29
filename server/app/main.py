@@ -44,7 +44,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app_settings = settings or get_settings()
     configure_logging(app_settings.log_level)
-    database = Database(app_settings.database_url, echo=app_settings.sql_echo)
+    database = Database(
+        app_settings.database_url,
+        echo=app_settings.sql_echo,
+        ssl_mode=app_settings.database_ssl,
+        pool_size=app_settings.database_pool_size,
+        max_overflow=app_settings.database_max_overflow,
+        pool_timeout=app_settings.database_pool_timeout,
+        pool_recycle=app_settings.database_pool_recycle,
+    )
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:

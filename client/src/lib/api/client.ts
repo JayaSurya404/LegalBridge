@@ -2,6 +2,7 @@ import type {
   BackendAuditEvent,
   BackendCase,
   BackendCaseCreate,
+  BackendDashboardSummary,
   BackendDocumentDetail,
   BackendDocumentMetadata,
   BackendDocumentMetadataCreate,
@@ -271,6 +272,10 @@ export class HttpLegalBridgeClient implements LegalBridgeClient {
     }
   }
 
+  getDashboardSummary(): Promise<BackendDashboardSummary> {
+    return this.authenticated("/api/v1/dashboard/summary");
+  }
+
   listCases(): Promise<BackendCase[]> {
     return this.authenticated("/api/v1/cases");
   }
@@ -400,6 +405,25 @@ export class MockLegalBridgeClient implements LegalBridgeClient {
 
   async logout(): Promise<void> {
     clearBackendSession();
+  }
+
+  async getDashboardSummary(): Promise<BackendDashboardSummary> {
+    const cases = await this.listCases();
+    return {
+      total_cases: cases.length,
+      active_cases: cases.filter((record) => record.status === "active").length,
+      review_cases: cases.filter((record) => record.status === "review").length,
+      draft_cases: cases.filter((record) => record.status === "draft").length,
+      closed_cases: cases.filter((record) => record.status === "closed").length,
+      archived_cases: cases.filter((record) => record.status === "archived").length,
+      total_documents: 0,
+      processed_documents: 0,
+      ocr_required_documents: 0,
+      failed_documents: 0,
+      extracted_source_pages: 0,
+      total_audit_events: 0,
+      recent_audit_events: [],
+    };
   }
 
   async listCases(): Promise<BackendCase[]> {

@@ -26,6 +26,7 @@ import { format } from "date-fns";
 export function DashboardPage() {
   const cases = useAppStore((state) => state.cases);
   const auditEvents = useAppStore((state) => state.auditEvents);
+  const dashboardSummary = useAppStore((state) => state.dashboardSummary);
   const demo =
     cases.find((record) => record.reference === BACKEND_DEMO_CASE_NUMBER) ??
     cases[0];
@@ -74,7 +75,7 @@ export function DashboardPage() {
       />
       <PrototypeDisclaimer className="mb-6" compact />
       <section aria-label="Workspace metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Active cases" value={cases.filter((record) => record.status === "active").length} note={`${cases.length} backend total`} icon={BriefcaseBusiness} />
+        <MetricCard label="Active cases" value={dashboardSummary?.active_cases ?? cases.filter((record) => record.status === "active").length} note={`${dashboardSummary?.total_cases ?? cases.length} backend total`} icon={BriefcaseBusiness} />
         <MetricCard label="Workflow progress" value={`${completed}/15`} note={demo?.workflow.status ?? "No case"} icon={Activity} />
         <MetricCard label="Citations verified" value={`${verified}/${citations}`} note="Synthetic closed records" icon={ShieldCheck} />
         <MetricCard
@@ -94,11 +95,11 @@ export function DashboardPage() {
         aria-label="Stored document metrics"
         className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5"
       >
-        <MetricCard label="Stored documents" value={storedDocuments.length} note="Private backend binaries" icon={FileStack} />
-        <MetricCard label="Processed sources" value={processedDocuments} note="Extraction completed" icon={FileCheck2} />
-        <MetricCard label="OCR required" value={ocrRequiredDocuments} note="No text invented" icon={AlertTriangle} />
-        <MetricCard label="Extraction failed" value={failedDocuments} note="Originals remain available" icon={AlertTriangle} />
-        <MetricCard label="Source pages" value={extractedPages} note="Database-backed text pages" icon={Scale} />
+        <MetricCard label="Stored documents" value={dashboardSummary?.total_documents ?? storedDocuments.length} note="Private backend binaries" icon={FileStack} />
+        <MetricCard label="Processed sources" value={dashboardSummary?.processed_documents ?? processedDocuments} note="Extraction completed" icon={FileCheck2} />
+        <MetricCard label="OCR required" value={dashboardSummary?.ocr_required_documents ?? ocrRequiredDocuments} note="No text invented" icon={AlertTriangle} />
+        <MetricCard label="Extraction failed" value={dashboardSummary?.failed_documents ?? failedDocuments} note="Originals remain available" icon={AlertTriangle} />
+        <MetricCard label="Source pages" value={dashboardSummary?.extracted_source_pages ?? extractedPages} note={`${dashboardSummary?.total_audit_events ?? auditEvents.length} persisted audit events`} icon={Scale} />
       </section>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.3fr_.7fr]">

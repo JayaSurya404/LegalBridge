@@ -2,6 +2,7 @@ import type {
   BackendAuditEvent,
   BackendCase,
   BackendCaseCreate,
+  BackendDashboardSummary,
   BackendDocumentDetail,
   BackendDocumentMetadata,
   BackendDocumentMetadataCreate,
@@ -15,6 +16,7 @@ export interface LegalBridgeClient {
   login(request: BackendLoginRequest): Promise<BackendTokenResponse>;
   restoreSession(): Promise<BackendUser | null>;
   logout(): Promise<void>;
+  getDashboardSummary(): Promise<BackendDashboardSummary>;
   listCases(): Promise<BackendCase[]>;
   getCase(caseId: string): Promise<BackendCase>;
   createCase(request: BackendCaseCreate): Promise<BackendCase>;

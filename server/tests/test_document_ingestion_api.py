@@ -394,6 +394,7 @@ async def _bootstrap_twice(settings: Settings) -> tuple[int, int, int, int, int]
 def test_demo_document_bootstrap_is_idempotent(tmp_path: Path) -> None:
     database_path = (tmp_path / "bootstrap.db").as_posix()
     settings = Settings(
+        _env_file=None,
         environment="test",
         database_url=f"sqlite+aiosqlite:///{database_path}",
         storage_root=tmp_path / "demo-uploads",

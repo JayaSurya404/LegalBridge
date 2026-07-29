@@ -34,7 +34,7 @@ class DocumentPage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     document_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("document_records.id", ondelete="CASCADE"),
+        ForeignKey("documents.id", ondelete="CASCADE"),
         nullable=False,
     )
     page_number: Mapped[int] = mapped_column(nullable=False)

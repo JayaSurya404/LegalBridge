@@ -28,11 +28,36 @@ def _enable_sqlite_foreign_keys(
 class Database:
     """Application-owned async engine and session factory."""
 
-    def __init__(self, database_url: str, *, echo: bool = False) -> None:
+    def __init__(
+        self,
+        database_url: str,
+        *,
+        echo: bool = False,
+        ssl_mode: str = "disable",
+        pool_size: int = 5,
+        max_overflow: int = 5,
+        pool_timeout: int = 30,
+        pool_recycle: int = 300,
+    ) -> None:
+        engine_options: dict[str, Any] = {
+            "echo": echo,
+            "pool_pre_ping": True,
+        }
+        if database_url.startswith("postgresql+asyncpg://"):
+            if ssl_mode != "require":
+                raise ValueError("PostgreSQL connections require SSL.")
+            engine_options.update(
+                {
+                    "connect_args": {"ssl": "require"},
+                    "pool_size": pool_size,
+                    "max_overflow": max_overflow,
+                    "pool_timeout": pool_timeout,
+                    "pool_recycle": pool_recycle,
+                }
+            )
         self.engine: AsyncEngine = create_async_engine(
             database_url,
-            echo=echo,
-            pool_pre_ping=True,
+            **engine_options,
         )
         if database_url.startswith("sqlite+aiosqlite://"):
             event.listen(self.engine.sync_engine, "connect", _enable_sqlite_foreign_keys)

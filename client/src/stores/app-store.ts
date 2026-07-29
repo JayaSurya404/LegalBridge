@@ -9,6 +9,7 @@ import {
   seedCase,
 } from "@/lib/demo/seed";
 import type {
+  BackendDashboardSummary,
   BackendDocumentDetail,
   BackendDocumentMetadataCreate,
 } from "@/lib/api/backend-types";
@@ -48,6 +49,7 @@ interface AppState {
   workspaceLoading: boolean;
   workspaceReady: boolean;
   workspaceError: string | null;
+  dashboardSummary: BackendDashboardSummary | null;
   selectedCaseId: string;
   cases: CaseRecord[];
   auditEvents: AuditEvent[];
@@ -239,6 +241,7 @@ export const useAppStore = create<AppState>()(
       workspaceLoading: false,
       workspaceReady: false,
       workspaceError: null,
+      dashboardSummary: null,
       selectedCaseId: DEMO_CASE_ID,
       cases: [freshSeedCase()],
       auditEvents: structuredClone(seedAuditEvents),
@@ -326,7 +329,10 @@ export const useAppStore = create<AppState>()(
         }
         set({ workspaceLoading: true, workspaceError: null });
         try {
-          const backendCases = await legalBridgeClient.listCases();
+          const [backendCases, dashboardSummary] = await Promise.all([
+            legalBridgeClient.listCases(),
+            legalBridgeClient.getDashboardSummary(),
+          ]);
           const documentSets = await Promise.all(
             backendCases.map(async (backendCase) => ({
               caseId: backendCase.id,
@@ -358,7 +364,7 @@ export const useAppStore = create<AppState>()(
             const demo = mapped.find(
               (record) => record.reference === BACKEND_DEMO_CASE_NUMBER,
             );
-            const auditEvents = demo
+            const remappedAuditEvents = demo
               ? state.auditEvents.map((event) =>
                   event.caseId === DEMO_CASE_ID
                     ? {
@@ -373,6 +379,10 @@ export const useAppStore = create<AppState>()(
                     : event,
                 )
               : state.auditEvents;
+            const auditEvents = mergeAuditEvents(
+              remappedAuditEvents,
+              dashboardSummary.recent_audit_events,
+            );
             const selectedCaseId = mapped.some(
               (record) => record.id === state.selectedCaseId,
             )
@@ -381,6 +391,7 @@ export const useAppStore = create<AppState>()(
             return {
               cases: mapped,
               auditEvents,
+              dashboardSummary,
               selectedCaseId,
               workspaceLoading: false,
               workspaceReady: true,
@@ -1139,6 +1150,7 @@ export const useAppStore = create<AppState>()(
           workspaceLoading: false,
           workspaceReady: false,
           workspaceError: null,
+          dashboardSummary: null,
         }) as AppState,
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);

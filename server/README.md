@@ -1,116 +1,82 @@
-# LegalBridge India Phase 3–6 API
+# LegalBridge India FastAPI service
 
-This directory contains the authenticated persistence and document-ingestion backend for the LegalBridge India attorney-assistance hackathon prototype.
-
-## Implemented
-
-- Async SQLAlchemy 2.0 with SQLite development persistence and PostgreSQL-compatible models.
-- Alembic-managed schema; normal application startup never calls `create_all`.
-- Organisation-scoped users, `admin`/`attorney`/`reviewer` roles, Argon2 passwords, JWT access tokens, rotating refresh sessions, and logout revocation.
-- Organisation-isolated cases, private document binaries, extraction metadata, source pages, and audit events.
-- Streamed multipart PDF, DOCX, and TXT upload with a configured 50 MB default limit.
-- Server-authoritative SHA-256, duplicate-content rejection within a case, safe filename checks, MIME/extension agreement, and content-signature validation.
-- PDF physical-page extraction with PyMuPDF.
-- DOCX ordered paragraph, heading, and table extraction with clearly labelled logical sections.
-- Controlled TXT decoding with form-feed or deterministic logical pages.
-- Optional Tesseract OCR for PDF pages without meaningful embedded text.
-- Authenticated original download, reprocessing, and deletion.
-- Idempotent generation, private storage, extraction, and persistence of three synthetic demonstration sources.
-
-## Private storage
-
-The default ignored development root is `server/data/uploads`:
+This service owns LegalBridge authentication, organisation isolation, persistence, private document ingestion, and the REST boundary. The active jury configuration uses Supabase PostgreSQL only as a hosted database:
 
 ```text
-server/data/uploads/
-  {organization_id}/
-    {case_id}/
-      {document_id}/
-        original.{extension}
+Next.js → FastAPI → SQLAlchemy asyncpg → Supabase PostgreSQL
 ```
 
-Original filenames are metadata only and never become path components. The API uses opaque server IDs, stages uploads in chunks, validates before an atomic move, and never exposes `storage_key` or a local path to clients. Authenticated routes enforce organisation and case isolation.
+The frontend never receives SQL credentials or Supabase privileged keys. Supabase Auth is not used.
 
-Generated user uploads, extracted local user text, the SQLite database, the virtual environment, and secrets are not committed.
+## Database configuration
 
-## Validation and extraction
+Copy `server/.env.example` to ignored `server/.env` and provide an SSL-required SQLAlchemy async URL for the Supabase IPv4 Session Pooler:
 
-Supported types:
+```dotenv
+DATABASE_URL=postgresql+asyncpg://postgres.PROJECT_REF:URL_ENCODED_PASSWORD@SESSION_POOLER:5432/postgres
+DATABASE_SSL=require
+DATABASE_POOL_SIZE=5
+DATABASE_MAX_OVERFLOW=5
+DATABASE_POOL_TIMEOUT=30
+DATABASE_POOL_RECYCLE=300
+```
 
-| Type | Declared MIME type | Signature/structure validation | Source-page model |
-| --- | --- | --- | --- |
-| PDF | `application/pdf` | `%PDF-` signature | Physical PDF pages |
-| DOCX | Office Open XML DOCX MIME | Valid ZIP, required Office entries, bounded entries/expansion/ratio | Logical DOCX sections |
-| TXT | `text/plain` | Controlled binary/NUL checks and decoding | Form-feed pages or logical text chunks |
+The PostgreSQL engine uses `pool_pre_ping`, bounded pooling, and async sessions. Normal application startup never calls `create_all` and never silently falls back if PostgreSQL fails.
 
-The server computes SHA-256 while streaming. Browser hashes are preliminary only. Duplicate server hashes within the same case return HTTP 409. Empty or invalid files return controlled HTTP 400 errors, oversized uploads return 413, permission failures return 403, and missing/cross-organisation records return 404.
+For an intentional local SQLite fallback:
 
-Extraction stores safe text and page metadata only; it performs no legal reasoning. Configured per-page, total-text, and page-count limits prevent unbounded extraction. Parser errors are converted to safe status messages without persisting stack traces.
+```dotenv
+DATABASE_URL=sqlite+aiosqlite:///./legalbridge.db
+DATABASE_SSL=disable
+```
 
-### Optional OCR
+SQLite foreign-key PRAGMA handling is applied only to SQLite. Existing `server/legalbridge.db` and existing uploads are preserved.
 
-OCR is disabled by default. The Python package does not install Tesseract itself.
+## Schema and initialization
 
-- When `LEGALBRIDGE_OCR_ENABLED=true` and a working Tesseract executable is detected, only PDF pages without meaningful embedded text are rendered and OCRed.
-- `LEGALBRIDGE_TESSERACT_COMMAND` may select an existing executable.
-- When Tesseract is absent or OCR is disabled, ordinary text PDFs still process normally.
-- Image-only pages retain empty text with `ocr_required`; mixed PDFs become `partially_processed`. No text is invented.
+Alembic revisions are the schema source of truth:
 
-## Setup and initialization
+1. `0001_phase3`
+2. `0002_phase5_6`
+3. `0003_postgresql`
 
 From the repository root:
 
 ```powershell
-python -m venv server/.venv
-server\.venv\Scripts\python.exe -m pip install -r server\requirements-dev.txt
 powershell -ExecutionPolicy Bypass -File .\scripts\init_backend_data.ps1
 ```
 
-The initialization script stops on failure and runs, in order:
+The command:
 
-1. `alembic upgrade head`
-2. The idempotent organisation/user/case bootstrap
-3. The idempotent three-document generation, storage, and extraction bootstrap
+1. Confirms the active settings use PostgreSQL.
+2. Prints only a masked database host.
+3. verifies and upgrades Alembic to head.
+4. Creates or repairs `LegalBridge Main Jury Workspace` (`legalbridge-main`).
+5. Creates or repairs the Argon2-backed primary admin and four supporting fictional staff.
+6. Seeds 15 numbered jury cases and 50 valid synthetic PDF/DOCX/TXT binaries.
+7. Stores originals in ignored local private storage and persists metadata/pages to PostgreSQL.
+8. Checks minimum case, document, page, audit, and flagship counts.
+9. Produces the same totals on repeat execution.
 
-Generated demo originals are valid synthetic PDF, DOCX, and TXT files under ignored private storage. Every file identifies itself as fictional hackathon data and not an official record.
+## Primary development account
 
-## Start and test
+- Workspace: `legalbridge-main`
+- Email: `legalbridge@legalbridge.demo`
+- Password: `legalbridge@2026`
+- Role: `admin`
 
-Start only FastAPI:
+The password is hashed with the existing Argon2 service. Password repair increments token version and revokes active refresh sessions. Supporting users receive random non-advertised passwords.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start_backend.ps1
-```
+## APIs
 
-Start the full stack:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start_fullstack.ps1
-```
-
-Run backend checks:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\test_backend.ps1
-```
-
-Run the live ingestion smoke test on a temporary port:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\smoke_phase5_6.ps1 -Port 8766
-```
-
-## Development accounts
-
-Organisation slug: `legalbridge-demo`
-
-- Admin: `admin@legalbridge.demo` / `LegalBridgeAdmin@2026`
-- Attorney: `attorney@legalbridge.demo` / `LegalBridge@2026`
-
-## Document API
-
+- `POST /api/v1/auth/login`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/cases`
+- `POST /api/v1/cases`
+- `GET /api/v1/dashboard/summary`
 - `GET /api/v1/cases/{case_id}/documents`
-- `POST /api/v1/cases/{case_id}/documents` — compatible metadata-only registration
 - `POST /api/v1/cases/{case_id}/documents/upload`
 - `GET /api/v1/cases/{case_id}/documents/{document_id}`
 - `GET /api/v1/cases/{case_id}/documents/{document_id}/download`
@@ -118,22 +84,34 @@ Organisation slug: `legalbridge-demo`
 - `DELETE /api/v1/cases/{case_id}/documents/{document_id}`
 - `GET /api/v1/cases/{case_id}/audit-events`
 
-Reviewers may list, inspect, and download. Only attorneys and administrators may upload, reprocess, or delete.
+The dashboard endpoint performs grouped SQL aggregates and limits recent organisation-scoped audit events. It does not load all rows to count them.
 
-## Configuration
+## Private storage boundary
 
-Copy `server/.env.example` to ignored `server/.env` for local overrides. Document-ingestion settings include:
+Original binaries remain under ignored `server/data/uploads`:
 
-- `LEGALBRIDGE_STORAGE_ROOT`
-- `LEGALBRIDGE_MAX_UPLOAD_BYTES`
-- `LEGALBRIDGE_OCR_ENABLED`
-- `LEGALBRIDGE_TESSERACT_COMMAND`
-- `LEGALBRIDGE_EXTRACTION_TEXT_LIMIT`
-- `LEGALBRIDGE_EXTRACTION_PAGE_TEXT_LIMIT`
-- `LEGALBRIDGE_EXTRACTION_MAX_PAGES`
+```text
+{organization_id}/{case_id}/{document_id}/original.{extension}
+```
 
-The checked-in JWT value is development-only. Production mode rejects it.
+Only metadata, authoritative SHA-256 values, processing state, and extracted pages are in Supabase PostgreSQL. Storage paths, passwords, tokens, database URLs, and full extracted text never enter audit metadata.
+
+## Start and verify
+
+```powershell
+Set-Location D:\LegalBridge\server
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m app.scripts.verify_main_api
+.\.venv\Scripts\python.exe -m app.scripts.verify_main_database
+```
+
+Automated checks from the repository root:
+
+```powershell
+server\.venv\Scripts\python.exe -m ruff check server\app server\tests server\alembic
+server\.venv\Scripts\python.exe -m pytest server\tests -q --basetemp=D:\LegalBridge\.tmp\pytest-final
+```
 
 ## Not implemented
 
-There is no statutory or precedent corpus ingestion, retrieval, embeddings, pgvector, RAG, AI provider, LangGraph execution, real multi-agent reasoning, legal Copilot, citation verification, motion generation from uploaded sources, digital signature, or court filing.
+There is no corpus ingestion, retrieval, embeddings, pgvector, RAG, model provider, LangGraph execution, real backend multi-agent reasoning, generated legal analysis, digital signature, or court filing in this checkpoint.

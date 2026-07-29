@@ -34,11 +34,10 @@ export default function SignInPage() {
             </CardHeader>
             <CardContent className="p-6">
               <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
-                <div className="flex items-center gap-2 font-semibold"><ShieldAlert className="size-4" aria-hidden="true" /> Demo credentials</div>
+                <div className="flex items-center gap-2 font-semibold"><ShieldAlert className="size-4" aria-hidden="true" /> Primary jury credentials</div>
                 <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-[5rem_1fr]">
-                  <dt className="font-semibold">Workspace</dt><dd className="break-all font-mono">legalbridge-demo</dd>
-                  <dt className="font-semibold">Attorney</dt><dd className="break-all font-mono">attorney@legalbridge.demo / LegalBridge@2026</dd>
-                  <dt className="font-semibold">Admin</dt><dd className="break-all font-mono">admin@legalbridge.demo / LegalBridgeAdmin@2026</dd>
+                  <dt className="font-semibold">Workspace</dt><dd className="break-all font-mono">legalbridge-main</dd>
+                  <dt className="font-semibold">Primary admin</dt><dd className="break-all font-mono">legalbridge@legalbridge.demo / legalbridge@2026</dd>
                   <dt className="font-semibold">Review PIN</dt><dd className="font-mono">2026</dd>
                 </dl>
               </div>

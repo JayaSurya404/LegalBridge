@@ -41,7 +41,7 @@ export function SignInForm() {
   } = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
     defaultValues: {
-      organizationSlug: "legalbridge-demo",
+      organizationSlug: "legalbridge-main",
       email: "",
       password: "",
     },
@@ -67,7 +67,12 @@ export function SignInForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+    <form
+      method="post"
+      onSubmit={handleSubmit(onSubmit)}
+      noValidate
+      className="space-y-5"
+    >
       <div>
         <label htmlFor="organizationSlug" className="mb-2 block text-sm font-semibold text-[var(--navy)]">
           Organisation workspace
@@ -131,14 +136,14 @@ export function SignInForm() {
         variant="ghost"
         className="w-full"
         onClick={() => {
-          setValue("organizationSlug", "legalbridge-demo", {
+          setValue("organizationSlug", "legalbridge-main", {
             shouldValidate: true,
           });
-          setValue("email", "attorney@legalbridge.demo", { shouldValidate: true });
-          setValue("password", "LegalBridge@2026", { shouldValidate: true });
+          setValue("email", "legalbridge@legalbridge.demo", { shouldValidate: true });
+          setValue("password", "legalbridge@2026", { shouldValidate: true });
         }}
       >
-        Fill attorney demo credentials
+        Fill primary jury credentials
       </Button>
     </form>
   );

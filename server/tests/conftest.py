@@ -141,6 +141,7 @@ def context(tmp_path: Path) -> Generator[ApiContext, None, None]:
     database_path = database_file.as_posix()
     storage_root = tmp_path / "uploads"
     settings = Settings(
+        _env_file=None,
         environment="test",
         database_url=f"sqlite+aiosqlite:///{database_path}",
         cors_origins=["http://localhost:3000"],

@@ -11,7 +11,7 @@ MAX_DOCUMENT_BYTES = 50 * 1024 * 1024
 
 
 class DocumentRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    __tablename__ = "document_records"
+    __tablename__ = "documents"
     __table_args__ = (
         Index(
             "uq_document_records_case_id_sha256",
