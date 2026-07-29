@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     template: "%s · LegalBridge India",
   },
   description:
-    "Attorney-assistance hackathon prototype with hosted persistence, source-linked synthetic analysis, ethics review, and an attorney approval gate.",
+    "Attorney-assistance platform with hosted persistence, source-linked synthetic analysis, ethics review, and an attorney approval gate.",
   applicationName: "LegalBridge India",
   icons: [{ rel: "icon", url: "/icon.svg", type: "image/svg+xml" }],
   openGraph: {

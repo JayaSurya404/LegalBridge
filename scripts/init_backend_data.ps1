@@ -33,6 +33,16 @@ try {
 
     & $pythonExecutable -m app.scripts.bootstrap_main
     if ($LASTEXITCODE -ne 0) {
+        throw "Main workspace bootstrap failed with code $LASTEXITCODE."
+    }
+
+    & $pythonExecutable -m app.scripts.bootstrap_phase7_11
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 7-11 bootstrap failed with code $LASTEXITCODE."
+    }
+
+    & $pythonExecutable -m app.scripts.bootstrap_jury_workspace
+    if ($LASTEXITCODE -ne 0) {
         throw "Jury workspace bootstrap failed with code $LASTEXITCODE."
     }
 }

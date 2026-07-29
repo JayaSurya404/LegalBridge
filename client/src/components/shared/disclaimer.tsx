@@ -16,13 +16,13 @@ export function PrototypeDisclaimer({
         compact ? "p-3 text-xs" : "p-4 text-sm",
         className,
       )}
-      aria-label="Legal prototype disclaimer"
+      aria-label="Legal platform disclaimer"
     >
       <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <p className="leading-6">
-        Attorney-assistance hackathon prototype using synthetic data. Not a
-        government service, final legal advice, or a replacement for professional
-        judgment. Nothing is automatically filed.
+        Attorney-assistance platform using a synthetic legal-aid dataset. Not a
+        government service or legal advice, and not a replacement for professional
+        judgment. Attorney review is required. Nothing is automatically filed.
       </p>
     </aside>
   );
@@ -32,7 +32,7 @@ export function SyntheticBadge() {
   return (
     <Badge tone="warning" className="gap-1.5">
       <FlaskConical className="size-3.5" aria-hidden="true" />
-      Synthetic Hackathon Demonstration Data
+      Synthetic Legal-Aid Dataset
     </Badge>
   );
 }

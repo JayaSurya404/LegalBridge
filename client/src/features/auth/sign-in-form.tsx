@@ -41,7 +41,7 @@ export function SignInForm() {
   } = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
     defaultValues: {
-      organizationSlug: "legalbridge-main",
+      organizationSlug: "legalbridge-jury",
       email: "",
       password: "",
     },
@@ -62,7 +62,7 @@ export function SignInForm() {
       !requested.includes("\\")
         ? requested
         : "/dashboard";
-    toast.success("Signed in to the LegalBridge development workspace.");
+    toast.success("Signed in to the LegalBridge workspace.");
     router.replace(destination);
   };
 
@@ -136,6 +136,20 @@ export function SignInForm() {
         variant="ghost"
         className="w-full"
         onClick={() => {
+          setValue("organizationSlug", "legalbridge-jury", {
+            shouldValidate: true,
+          });
+          setValue("email", "jury@legalbridge.local", { shouldValidate: true });
+          setValue("password", "LegalBridgeJury@2026", { shouldValidate: true });
+        }}
+      >
+        Fill recommended jury credentials
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="w-full"
+        onClick={() => {
           setValue("organizationSlug", "legalbridge-main", {
             shouldValidate: true,
           });
@@ -143,7 +157,7 @@ export function SignInForm() {
           setValue("password", "legalbridge@2026", { shouldValidate: true });
         }}
       >
-        Fill primary jury credentials
+        Fill legacy main credentials
       </Button>
     </form>
   );

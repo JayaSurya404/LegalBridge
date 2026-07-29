@@ -131,7 +131,7 @@ export function AuditLogPage() {
       </Card>
 
       {caseEvents.length === 0 ? (
-        <EmptyState title="No audit events match this view" description="Clear the filters or complete a frontend demonstration action." />
+        <EmptyState title="No audit events match this view" description="Clear the filters or complete a workspace action." />
       ) : (
         <ol className="space-y-3">
           {caseEvents.map((event) => (

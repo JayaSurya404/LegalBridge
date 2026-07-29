@@ -68,7 +68,7 @@ export function WorkflowPage() {
     >
       <Card className="mb-6 border-blue-200 bg-blue-50">
         <CardContent className="p-5 text-sm leading-6 text-blue-950">
-          Synthetic demonstration data · Not legal advice · Attorney verification
+          Synthetic legal-aid dataset · Not legal advice · Attorney verification
           required · No automatic court filing.
         </CardContent>
       </Card>

@@ -48,11 +48,11 @@ export function CopilotPage() {
       caseId={caseId}
       eyebrow={record.reference}
       title="Case-aware Legal Copilot"
-      description="Deterministic answers use only case fields, stored document pages, persisted analysis, and synthetic demonstration authorities."
+      description="Deterministic answers use only case fields, stored document pages, persisted analysis, and synthetic authorities."
     >
       <Card className="mb-5 border-amber-200 bg-amber-50">
         <CardContent className="p-4 text-sm leading-6 text-amber-950">
-          Synthetic demonstration data · Not legal advice · Attorney verification
+          Synthetic legal-aid dataset · Not legal advice · Attorney verification
           required · No automatic court filing. Unsupported questions receive an
           explicit insufficient-source response.
         </CardContent>

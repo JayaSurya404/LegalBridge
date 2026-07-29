@@ -214,7 +214,7 @@ export function MotionPage() {
         <CardContent className="p-4 text-sm leading-6 text-red-950">
           Demonstration draft — attorney review
           required — not filed with any court.
-          Synthetic demonstration data; not legal
+          Synthetic legal-aid dataset; not legal
           advice; no automatic court filing.
         </CardContent>
       </Card>

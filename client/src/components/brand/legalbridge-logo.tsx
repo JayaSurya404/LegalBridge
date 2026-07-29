@@ -29,7 +29,7 @@ export function LegalBridgeLogo({
               inverse ? "text-slate-300" : "text-[var(--slate)]",
             )}
           >
-            Attorney-assistance prototype
+            Attorney-assistance platform
           </span>
         </span>
       )}

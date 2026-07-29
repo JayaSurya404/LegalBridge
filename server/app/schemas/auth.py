@@ -1,6 +1,6 @@
 """Authentication request and response schemas."""
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, TypeAdapter, field_validator
 
 from app.core.security import validate_password_strength
 from app.schemas.user import UserResponse
@@ -12,7 +12,7 @@ class LoginRequest(BaseModel):
         min_length=2,
         max_length=100,
     )
-    email: EmailStr
+    email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=1, max_length=512)
 
     @field_validator("organization_slug")
@@ -22,8 +22,11 @@ class LoginRequest(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def normalize_email(cls, value: EmailStr) -> str:
-        return str(value).strip().lower()
+    def normalize_email(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized.endswith("@legalbridge.local"):
+            return normalized
+        return str(TypeAdapter(EmailStr).validate_python(normalized))
 
 
 class RefreshRequest(BaseModel):

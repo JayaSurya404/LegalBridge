@@ -121,7 +121,7 @@ export function SettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-3">
                 <ShieldAlert className="size-5 text-[var(--red)]" aria-hidden="true" />
-                <CardTitle>Prototype boundary</CardTitle>
+                <CardTitle>Platform boundary</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="text-sm leading-6 text-[var(--slate)]">

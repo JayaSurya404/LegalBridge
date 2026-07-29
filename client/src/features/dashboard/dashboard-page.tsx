@@ -65,7 +65,7 @@ export function DashboardPage() {
       <PageHeader
         eyebrow="Persistent development workspace"
         title="Good afternoon, counsel."
-        description="Manage persisted cases, private originals, and extracted source pages while keeping legal analysis inside the closed synthetic demonstration boundary."
+        description="Manage persisted cases, private originals, extracted source pages, and review-gated analysis from the synthetic legal-aid dataset."
         actions={
           <Link href="/cases/new" className={buttonVariants()}>
             New case

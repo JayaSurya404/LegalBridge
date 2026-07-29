@@ -44,7 +44,7 @@ export function ResearchPage() {
       description="Closed synthetic records illustrate future legal-research review. They are original demo text—not verified statutes, judgments, or court citations."
     >
       <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-amber-950">
-        Synthetic demonstration authorities — not official legal sources.
+        Synthetic authorities — not official legal sources.
         Attorney verification is required.
       </div>
       <div className="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-950">

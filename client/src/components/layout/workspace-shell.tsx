@@ -224,7 +224,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
           <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,88vw)] flex-col bg-[var(--navy)] shadow-2xl focus:outline-none lg:hidden">
             <DialogPrimitive.Title className="sr-only">Workspace navigation</DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">
-              Navigate the LegalBridge India frontend demonstration.
+              Navigate the LegalBridge India workspace.
             </DialogPrimitive.Description>
             <button
               type="button"
@@ -308,7 +308,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
         <footer className="no-print border-t border-[var(--border)] px-6 py-4 text-center text-xs leading-5 text-[var(--slate)]">
-          Attorney-assistance hackathon prototype · Real case persistence · Synthetic legal analysis · Not final legal advice · Not automatically filed
+          Attorney-assistance platform · Supabase-backed case persistence · Synthetic legal-aid dataset · Not legal advice · Attorney review required · No automatic court filing
         </footer>
       </div>
     </div>

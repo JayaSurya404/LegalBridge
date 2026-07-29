@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 
 const workflow = [
   { icon: FileSearch, title: "Ground every observation", body: "Facts remain linked to closed synthetic source spans so attorneys can inspect what supports each statement." },
-  { icon: Network, title: "Coordinate deterministic agents", body: "Fifteen frontend-simulated agents organise the timeline, conflicts, research, strategy, ethics, and draft." },
+  { icon: Network, title: "Coordinate review agents", body: "Database-backed workflow agents organise the timeline, conflicts, research, strategy, ethics, and draft." },
   { icon: ShieldCheck, title: "Apply the Citation Firewall", body: "Missing sources, unsupported propositions, and rejected arguments block export by design." },
   { icon: UserCheck, title: "Stop at attorney review", body: "Only a named reviewer can approve the exact saved version. Any later edit revokes approval." },
 ];
@@ -38,8 +38,8 @@ export function LandingPage() {
                 Sign in
               </Link>
               <Link href="/sign-in" className={buttonVariants({ size: "sm" })}>
-                <span className="sm:hidden">Enter Demo</span>
-                <span className="hidden sm:inline">Enter Demo Workspace</span>
+                <span className="sm:hidden">Enter Jury</span>
+                <span className="hidden sm:inline">Enter Jury Workspace</span>
               </Link>
             </nav>
           </div>
@@ -58,11 +58,11 @@ export function LandingPage() {
                   Source-linked legal assistance, built to stop before filing.
                 </h1>
                 <p className="mt-6 max-w-2xl text-lg leading-8 text-[var(--slate)]">
-                  LegalBridge India is a full-stack hackathon demonstration for legal-aid lawyers. FastAPI privately stores validated originals and extracts database-backed source pages while the closed synthetic analysis walkthrough remains separate.
+                  LegalBridge India is a full-stack attorney-assistance platform for legal-aid lawyers. FastAPI privately stores validated originals, extracted source pages, and review-gated analysis in Supabase PostgreSQL.
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Link href="/sign-in" className={buttonVariants({ size: "lg" })}>
-                    Enter Demo Workspace <ArrowRight className="size-4" aria-hidden="true" />
+                    Enter Jury Workspace <ArrowRight className="size-4" aria-hidden="true" />
                   </Link>
                   <a href="#how-it-works" className={buttonVariants({ variant: "secondary", size: "lg" })}>
                     See the safety workflow
@@ -97,7 +97,7 @@ export function LandingPage() {
                       </div>
                     ))}
                     <p className="pt-2 text-xs leading-5 text-slate-300">
-                      These are deterministic synthetic-demo metrics. No real legal database or court system is connected.
+                      These are synthetic legal-aid dataset metrics. No real legal corpus or court system is connected.
                     </p>
                   </CardContent>
                 </Card>
@@ -110,7 +110,7 @@ export function LandingPage() {
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--saffron-dark)]">Designed for reviewability</p>
               <h2 className="mt-3 font-serif text-3xl font-semibold text-[var(--navy)] sm:text-4xl">A calm workspace for difficult source material</h2>
               <p className="mt-4 text-base leading-7 text-[var(--slate)]">
-                The demonstration makes every handoff visible, treats uncertainty as a first-class state, and prevents fictional authority from masquerading as verified law.
+                The platform makes every handoff visible, treats uncertainty as a first-class state, and prevents fictional authority from masquerading as verified law.
               </p>
             </div>
             <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -144,7 +144,7 @@ export function LandingPage() {
                 <BookCheck className="size-7 text-[var(--green)]" aria-hidden="true" />
                 <h2 className="mt-4 font-serif text-2xl font-semibold text-[var(--navy)]">SDG 10.3 · Equal opportunity</h2>
                 <p className="mt-3 leading-7 text-[var(--slate)]">
-                  The prototype explores a more consistent, auditable path for reviewing procedural concerns without presenting AI output as legal judgment.
+                  The platform explores a more consistent, auditable path for reviewing procedural concerns without presenting AI output as legal judgment.
                 </p>
               </article>
             </div>
@@ -156,7 +156,7 @@ export function LandingPage() {
                 <Gavel className="size-7 text-[var(--saffron-dark)]" aria-hidden="true" />
                 <h2 className="mt-4 font-serif text-3xl font-semibold text-[var(--navy)]">Clear about what this is—and is not</h2>
                 <p className="mt-4 leading-7 text-[var(--slate)]">
-                  This checkpoint includes real authentication, private binary storage, PDF/DOCX/TXT extraction, and optional OCR. It performs no legal research, AI reasoning, citation verification, motion generation from uploads, or court filing.
+                  This workspace includes real authentication, private document storage, source-page extraction, reviewable analysis, citation checks, and attorney-gated motion drafting. It never performs automatic court filing.
                 </p>
               </div>
               <PrototypeDisclaimer />
@@ -168,7 +168,7 @@ export function LandingPage() {
           <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm text-[var(--slate)] sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
             <LegalBridgeLogo />
             <p className="max-w-xl text-xs leading-5 lg:text-right">
-              LegalBridge India · Problem statement SDGGAIP016 · Synthetic demonstration data · Not an official government service · Not authorised for automatic court filing.
+              LegalBridge India · Problem statement SDGGAIP016 · Synthetic legal-aid dataset · Not legal advice · Attorney review required · No automatic court filing.
             </p>
           </div>
         </footer>
