@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "legalbridge-india-api"
-version = "0.3.0"
-description = "Persistence and authentication API for the LegalBridge India prototype."
+version = "0.6.0"
+description = "Authenticated document-ingestion API for the LegalBridge India prototype."
 requires-python = ">=3.10"
 dependencies = [
   "aiosqlite==0.21.0",
@@ -13,9 +13,15 @@ dependencies = [
   "asyncpg==0.30.0",
   "email-validator==2.3.0",
   "fastapi==0.140.13",
+  "charset-normalizer==3.4.3",
+  "Pillow==11.3.0",
   "pwdlib[argon2]==0.3.0",
   "pydantic-settings==2.14.2",
+  "PyMuPDF==1.26.3",
   "PyJWT==2.10.1",
+  "pytesseract==0.3.13",
+  "python-docx==1.2.0",
+  "python-multipart==0.0.20",
   "SQLAlchemy[asyncio]==2.0.44",
   "uvicorn==0.52.0",
 ]

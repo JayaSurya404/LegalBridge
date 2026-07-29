@@ -11,7 +11,7 @@ def test_root_service_metadata(context: ApiContext) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["service"] == "LegalBridge India API"
-    assert payload["version"] == "0.3.0"
+    assert payload["version"] == "0.6.0"
     assert payload["environment"] == "test"
     assert payload["api_prefix"] == "/api/v1"
     assert payload["documentation_url"] == "/docs"
@@ -39,7 +39,7 @@ def test_database_readiness(context: ApiContext) -> None:
         "ready": True,
         "api": {"status": "ready"},
         "database": {"status": "ready"},
-        "storage": {"status": "not_configured"},
+        "storage": {"status": "ready"},
         "ai": {"status": "not_configured"},
     }
 
@@ -55,11 +55,13 @@ def test_capability_accuracy(context: ApiContext) -> None:
         "users",
         "cases",
         "document_metadata",
+        "source_pages",
         "audit_events",
+        "binary_storage",
+        "document_processing",
     ):
         assert payload[capability] == "implemented"
-    assert payload["binary_storage"] == "unavailable"
-    assert payload["document_processing"] == "unavailable"
+    assert payload["optional_ocr"] == "optional"
     assert payload["legal_research"] == "unavailable"
     assert payload["multi_agent_backend"] == "unavailable"
     assert payload["citation_verification"] == "frontend_simulation_only"

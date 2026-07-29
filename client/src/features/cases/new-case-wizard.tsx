@@ -171,9 +171,9 @@ export function NewCaseWizard() {
               {step === 4 && (
                 <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6 text-blue-950">
                   <FileLock2 className="size-8" aria-hidden="true" />
-                  <h3 className="mt-4 font-serif text-xl font-semibold">Document metadata comes next</h3>
+                  <h3 className="mt-4 font-serif text-xl font-semibold">Private document ingestion comes next</h3>
                   <p className="mt-2 text-sm leading-6">
-                    After creating the case, open Documents to select PDF, TXT, or DOCX files. Only validated metadata and a browser-calculated SHA-256 are sent; binary contents are discarded.
+                    After creating the case, open Documents to upload PDF, TXT, or DOCX files. FastAPI validates and privately stores the original, computes the authoritative SHA-256, and extracts source pages without producing legal analysis.
                   </p>
                 </div>
               )}

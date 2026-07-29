@@ -27,7 +27,7 @@ export function StrategyPage() {
       {record.strategies.length === 0 ? (
         <EmptyState
           title="No case-specific strategies are available"
-          description="Browser-created cases do not receive generated legal strategies because this frontend performs no document parsing or legal analysis. Use the preloaded synthetic matter for the closed strategy demonstration."
+          description="New backend cases do not receive generated legal strategies. Source extraction is real, but no AI or legal-analysis pipeline uses those pages. Use the preloaded synthetic matter for the closed strategy demonstration."
         />
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">

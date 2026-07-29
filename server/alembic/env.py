@@ -14,13 +14,14 @@ from app.db.base import Base
 from app.models import (
     AuditEvent,
     AuthSession,
+    DocumentPage,
     DocumentRecord,
     LegalCase,
     Organization,
     User,
 )
 
-del AuditEvent, AuthSession, DocumentRecord, LegalCase, Organization, User
+del AuditEvent, AuthSession, DocumentPage, DocumentRecord, LegalCase, Organization, User
 
 config = context.config
 if config.config_file_name is not None:

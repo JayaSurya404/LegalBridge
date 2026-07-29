@@ -82,7 +82,7 @@ function Navigation({
       {!collapsed && (
         <div className="m-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">
           <FileStack className="mb-2 size-4" aria-hidden="true" />
-          Cases and metadata persist to the local API. Legal analysis remains synthetic.
+          Cases, private originals, and extracted pages persist to the local API. Legal analysis remains synthetic.
         </div>
       )}
     </>

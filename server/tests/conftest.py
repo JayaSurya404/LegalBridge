@@ -26,6 +26,8 @@ TEST_PASSWORD_HASH = hash_password(TEST_PASSWORD)
 @dataclass(frozen=True)
 class ApiContext:
     client: TestClient
+    database_path: Path
+    storage_root: Path
     admin_id: str
     admin_email: str
     attorney_id: str
@@ -35,11 +37,16 @@ class ApiContext:
     other_admin_email: str
     other_case_id: str
 
-    def login(self, email: str, password: str = TEST_PASSWORD) -> dict[str, object]:
+    def login(
+        self,
+        email: str,
+        password: str = TEST_PASSWORD,
+        organization_slug: str = "test-legal-aid",
+    ) -> dict[str, object]:
         response = self.client.post(
             "/api/v1/auth/login",
             json={
-                "organization_slug": "test-legal-aid",
+                "organization_slug": organization_slug,
                 "email": email,
                 "password": password,
             },
@@ -47,8 +54,12 @@ class ApiContext:
         assert response.status_code == 200
         return response.json()
 
-    def access_headers(self, email: str) -> dict[str, str]:
-        tokens = self.login(email)
+    def access_headers(
+        self,
+        email: str,
+        organization_slug: str = "test-legal-aid",
+    ) -> dict[str, str]:
+        tokens = self.login(email, organization_slug=organization_slug)
         return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
@@ -126,18 +137,25 @@ async def _prepare_database(application) -> dict[str, str]:
 
 @pytest.fixture
 def context(tmp_path: Path) -> Generator[ApiContext, None, None]:
-    database_path = (tmp_path / "legalbridge-test.db").as_posix()
+    database_file = tmp_path / "legalbridge-test.db"
+    database_path = database_file.as_posix()
+    storage_root = tmp_path / "uploads"
     settings = Settings(
         environment="test",
         database_url=f"sqlite+aiosqlite:///{database_path}",
         cors_origins=["http://localhost:3000"],
         jwt_secret="test-only-jwt-secret-that-is-longer-than-thirty-two-characters",
+        storage_root=storage_root,
+        max_upload_bytes=1024 * 1024,
+        ocr_enabled=False,
     )
     application = create_app(settings)
     identifiers = asyncio.run(_prepare_database(application))
     with TestClient(application) as client:
         yield ApiContext(
             client=client,
+            database_path=database_file,
+            storage_root=storage_root,
             admin_id=identifiers["admin_id"],
             admin_email="admin@test.legalbridge",
             attorney_id=identifiers["attorney_id"],

@@ -2,6 +2,7 @@ import type {
   BackendAuditEvent,
   BackendCase,
   BackendCaseCreate,
+  BackendDocumentDetail,
   BackendDocumentMetadata,
   BackendDocumentMetadataCreate,
   BackendLoginRequest,
@@ -22,6 +23,20 @@ export interface LegalBridgeClient {
     caseId: string,
     request: BackendDocumentMetadataCreate,
   ): Promise<BackendDocumentMetadata>;
+  uploadDocument(
+    caseId: string,
+    file: File,
+    category: string,
+  ): Promise<BackendDocumentDetail>;
+  getDocumentDetail(
+    caseId: string,
+    documentId: string,
+  ): Promise<BackendDocumentDetail>;
+  downloadDocument(caseId: string, documentId: string): Promise<Blob>;
+  reprocessDocument(
+    caseId: string,
+    documentId: string,
+  ): Promise<BackendDocumentDetail>;
   deleteDocumentMetadata(caseId: string, documentId: string): Promise<void>;
   listAuditEvents(caseId: string): Promise<BackendAuditEvent[]>;
 }

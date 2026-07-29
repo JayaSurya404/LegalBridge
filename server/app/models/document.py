@@ -1,9 +1,11 @@
-"""Metadata-only document persistence model."""
+"""Stored-document persistence model with extraction metadata."""
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, String
+from datetime import datetime
+
+from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, TimestampMixin, UTCDateTime, UUIDPrimaryKeyMixin
 
 MAX_DOCUMENT_BYTES = 50 * 1024 * 1024
 
@@ -46,6 +48,23 @@ class DocumentRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         String(32),
         default="metadata_only",
         nullable=False,
+    )
+    storage_key: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    storage_backend: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    extraction_status: Mapped[str] = mapped_column(
+        String(32),
+        default="metadata_only",
+        nullable=False,
+    )
+    parser_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    parser_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    page_count: Mapped[int] = mapped_column(default=0, nullable=False)
+    extracted_character_count: Mapped[int] = mapped_column(default=0, nullable=False)
+    extraction_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    original_uploaded_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(),
+        nullable=True,
     )
     created_by_id: Mapped[str] = mapped_column(
         String(36),

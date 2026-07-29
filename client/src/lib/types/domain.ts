@@ -17,6 +17,20 @@ export interface DocumentMeta {
   category?: string;
   sha256?: string;
   origin?: "backend" | "synthetic_fixture" | "browser_local";
+  extractionStatus?:
+    | "metadata_only"
+    | "uploaded"
+    | "processing"
+    | "processed"
+    | "partially_processed"
+    | "ocr_required"
+    | "failed";
+  parserName?: string | null;
+  parserVersion?: string | null;
+  pageCount?: number;
+  extractedCharacterCount?: number;
+  extractionError?: string | null;
+  binaryExists?: boolean;
 }
 
 export interface WorkflowNode {

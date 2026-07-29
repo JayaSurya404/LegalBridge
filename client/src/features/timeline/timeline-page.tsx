@@ -40,7 +40,7 @@ export function TimelinePage() {
       {record.timeline.length === 0 ? (
         <EmptyState
           title="No source-linked timeline is available"
-          description="Browser-created cases do not receive case-specific analysis because this frontend does not parse selected files. Use the preloaded synthetic matter for the closed timeline demonstration."
+          description="New backend cases do not receive case-specific analysis. Real source extraction does not generate a timeline. Use the preloaded synthetic matter for the closed timeline demonstration."
         />
       ) : events.length === 0 ? (
         <EmptyState title="No timeline events in this view" description="Clear the conflict filter to review all source-linked demonstration events." action={<Button onClick={() => setConflictsOnly(false)}>Show all events</Button>} />

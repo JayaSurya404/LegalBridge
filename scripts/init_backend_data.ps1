@@ -19,6 +19,11 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Demo bootstrap failed with code $LASTEXITCODE."
     }
+
+    & $pythonExecutable -m app.scripts.bootstrap_demo_documents
+    if ($LASTEXITCODE -ne 0) {
+        throw "Demo document bootstrap failed with code $LASTEXITCODE."
+    }
 }
 finally {
     Pop-Location

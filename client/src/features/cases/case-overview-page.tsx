@@ -25,7 +25,7 @@ import { getMotionGateStatus } from "@/lib/motion-gate";
 import { useAppStore } from "@/stores/app-store";
 
 const moduleLinks = [
-  ["Documents", "Review persisted metadata", "/documents", FileStack],
+  ["Documents", "Review stored originals and source pages", "/documents", FileStack],
   ["Workflow", "Run the 15-agent simulation", "/workflow", Activity],
   ["Timeline", "Inspect source-linked events", "/timeline", ScrollText],
   ["Contradictions", "Compare material statements", "/contradictions", GitCompareArrows],
@@ -45,6 +45,22 @@ export function CaseOverviewPage() {
   );
   if (!record) return <UnknownCase />;
   const completed = record.workflow.nodes.filter((node) => node.status === "completed").length;
+  const storedDocuments = record.documents.filter(
+    (document) => document.origin === "backend",
+  );
+  const processedDocuments = storedDocuments.filter(
+    (document) => document.extractionStatus === "processed",
+  ).length;
+  const ocrRequiredDocuments = storedDocuments.filter(
+    (document) => document.extractionStatus === "ocr_required",
+  ).length;
+  const failedDocuments = storedDocuments.filter(
+    (document) => document.extractionStatus === "failed",
+  ).length;
+  const sourcePages = storedDocuments.reduce(
+    (total, document) => total + (document.pageCount ?? 0),
+    0,
+  );
   const rejectionApplied = record.ethicsArguments.some((argument) => argument.requiredRejection && argument.status === "rejected");
   const gate = getMotionGateStatus(record);
   const verified = gate.metrics.citationRecordsVerified;
@@ -71,7 +87,8 @@ export function CaseOverviewPage() {
       actions={<Link href={nextAction.href} className={buttonVariants()}>{nextAction.label}<ArrowRight className="size-4" aria-hidden="true" /></Link>}
     >
       <section aria-label="Case summary metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Documents" value={record.documents.length} note={`${record.documents.filter((document) => document.status === "processed").length} processed metadata records`} icon={FileStack} />
+        <MetricCard label="Stored documents" value={storedDocuments.length} note={`${processedDocuments} processed · ${ocrRequiredDocuments} OCR · ${failedDocuments} failed`} icon={FileStack} />
+        <MetricCard label="Extracted pages" value={sourcePages} note="Database-backed source pages" icon={BookOpenCheck} />
         <MetricCard label="Workflow" value={`${completed}/15`} note={record.workflow.status} icon={Activity} />
         <MetricCard label="Source-linked facts" value={record.timeline.length > 0 ? 24 : 0} note={`${record.timeline.length} timeline events`} icon={ScrollText} />
         <MetricCard label="Potential concerns" value={record.findings.length} note={`${record.contradictions.length} contradictions`} icon={AlertTriangle} />

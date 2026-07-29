@@ -62,7 +62,16 @@ export interface BackendCaseCreate {
   assigned_attorney_id: string | null;
 }
 
-export interface BackendDocumentMetadata {
+export type BackendDocumentExtractionStatus =
+  | "metadata_only"
+  | "uploaded"
+  | "processing"
+  | "processed"
+  | "partially_processed"
+  | "ocr_required"
+  | "failed";
+
+export interface BackendDocumentSummary {
   id: string;
   organization_id: string;
   case_id: string;
@@ -72,10 +81,39 @@ export interface BackendDocumentMetadata {
   sha256: string;
   category: string;
   status: "metadata_only";
+  extraction_status: BackendDocumentExtractionStatus;
+  parser_name: string | null;
+  parser_version: string | null;
+  page_count: number;
+  extracted_character_count: number;
+  extraction_error: string | null;
+  processed_at: string | null;
+  original_uploaded_at: string | null;
+  binary_exists: boolean;
   created_by_id: string;
   created_at: string;
   updated_at: string;
 }
+
+export interface BackendDocumentPage {
+  id: string;
+  organization_id: string;
+  case_id: string;
+  document_id: string;
+  page_number: number;
+  page_label: string;
+  extracted_text: string;
+  character_count: number;
+  extraction_method: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BackendDocumentDetail extends BackendDocumentSummary {
+  pages: BackendDocumentPage[];
+}
+
+export type BackendDocumentMetadata = BackendDocumentSummary;
 
 export interface BackendDocumentMetadataCreate {
   original_filename: string;

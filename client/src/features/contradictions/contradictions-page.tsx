@@ -36,7 +36,7 @@ export function ContradictionsPage() {
       {record.contradictions.length === 0 ? (
         <EmptyState
           title="No contradiction comparisons are available"
-          description="Browser-created cases do not receive case-specific comparisons because this frontend does not parse selected files. Use the preloaded synthetic matter for arrest, seizure, and witness contradictions."
+          description="New backend cases do not receive case-specific comparisons. Real source extraction does not generate legal analysis. Use the preloaded synthetic matter for arrest, seizure, and witness contradictions."
         />
       ) : contradictions.length === 0 ? (
         <EmptyState title="No contradictions match this filter" description="Choose another severity to inspect the demonstration comparisons." />

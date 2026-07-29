@@ -38,7 +38,7 @@ function emptyAnalysisCase(backend: BackendCase): CaseRecord {
     reference: backend.case_number,
     allegation:
       backend.description ??
-      "No allegation summary was supplied. Real document parsing and agent execution have not occurred.",
+      "No allegation summary was supplied. Extracted source pages do not create an allegation or legal conclusion.",
     allegationType: backend.allegation_type ?? "Not specified",
     court: backend.court_name ?? "Not specified",
     jurisdiction: backend.jurisdiction ?? "Not specified",
@@ -55,7 +55,7 @@ function emptyAnalysisCase(backend: BackendCase): CaseRecord {
       nodes: agentDefinitions.map((node, index) => ({
         ...node,
         output:
-          "No case-specific output exists. Real document parsing and agent execution have not occurred for this backend case.",
+          "No case-specific analysis exists. Source extraction may produce reviewable pages, but no AI, legal reasoning, or backend agent execution has occurred.",
         sourceRefs: [],
         status: index === 0 ? "queued" : "locked",
       })),
@@ -156,6 +156,14 @@ export function mapBackendDocument(
     category: document.category,
     sha256: document.sha256,
     origin: "backend",
+    extractionStatus: document.extraction_status,
+    parserName: document.parser_name,
+    parserVersion: document.parser_version,
+    pageCount: document.page_count,
+    pages: document.page_count,
+    extractedCharacterCount: document.extracted_character_count,
+    extractionError: document.extraction_error,
+    binaryExists: document.binary_exists,
   };
 }
 

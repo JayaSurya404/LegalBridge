@@ -43,7 +43,7 @@ export function EthicsPage() {
       {record.ethicsArguments.length === 0 ? (
         <EmptyState
           title="No candidate arguments are available"
-          description="Browser-created cases do not receive generated arguments because this frontend performs no document parsing or legal analysis. Use the preloaded synthetic matter for the ethics-review walkthrough."
+          description="New backend cases do not receive generated arguments. Source extraction is real, but no AI or legal-analysis pipeline uses those pages. Use the preloaded synthetic matter for the ethics-review walkthrough."
         />
       ) : (
         <div className="grid gap-5">

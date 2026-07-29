@@ -13,6 +13,7 @@ from app.schemas.health import (
     HealthResponse,
     ReadinessResponse,
 )
+from app.services.storage import StorageService
 
 router = APIRouter(tags=["system"])
 
@@ -37,11 +38,16 @@ async def health(request: Request) -> HealthResponse:
 async def ready(request: Request) -> ReadinessResponse:
     database: Database = request.app.state.database
     database_ready = await database.ping()
+    settings = _settings(request)
+    storage_ready = StorageService(
+        settings.storage_root,
+        settings.max_upload_bytes,
+    ).is_ready()
     return ReadinessResponse(
-        ready=database_ready,
+        ready=database_ready and storage_ready,
         api=ComponentReadiness(status="ready"),
         database=ComponentReadiness(status="ready" if database_ready else "unavailable"),
-        storage=ComponentReadiness(status="not_configured"),
+        storage=ComponentReadiness(status="ready" if storage_ready else "unavailable"),
         ai=ComponentReadiness(status="not_configured"),
     )
 

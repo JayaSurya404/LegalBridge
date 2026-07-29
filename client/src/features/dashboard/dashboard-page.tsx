@@ -2,9 +2,11 @@
 
 import {
   Activity,
+  AlertTriangle,
   ArrowRight,
   BriefcaseBusiness,
   FileCheck2,
+  FileStack,
   Scale,
   ShieldCheck,
 } from "lucide-react";
@@ -40,13 +42,29 @@ export function DashboardPage() {
     { name: "Concerns", value: demo?.findings.length ?? 0 },
     { name: "Authorities", value: demo?.authorities.length ?? 0 },
   ];
+  const storedDocuments = cases.flatMap((record) =>
+    record.documents.filter((document) => document.origin === "backend"),
+  );
+  const processedDocuments = storedDocuments.filter(
+    (document) => document.extractionStatus === "processed",
+  ).length;
+  const ocrRequiredDocuments = storedDocuments.filter(
+    (document) => document.extractionStatus === "ocr_required",
+  ).length;
+  const failedDocuments = storedDocuments.filter(
+    (document) => document.extractionStatus === "failed",
+  ).length;
+  const extractedPages = storedDocuments.reduce(
+    (total, document) => total + (document.pageCount ?? 0),
+    0,
+  );
 
   return (
     <>
       <PageHeader
         eyebrow="Persistent development workspace"
         title="Good afternoon, counsel."
-        description="Manage persisted cases and metadata while keeping legal analysis inside the closed synthetic demonstration boundary."
+        description="Manage persisted cases, private originals, and extracted source pages while keeping legal analysis inside the closed synthetic demonstration boundary."
         actions={
           <Link href="/cases/new" className={buttonVariants()}>
             New case
@@ -71,6 +89,16 @@ export function DashboardPage() {
           }
           icon={FileCheck2}
         />
+      </section>
+      <section
+        aria-label="Stored document metrics"
+        className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5"
+      >
+        <MetricCard label="Stored documents" value={storedDocuments.length} note="Private backend binaries" icon={FileStack} />
+        <MetricCard label="Processed sources" value={processedDocuments} note="Extraction completed" icon={FileCheck2} />
+        <MetricCard label="OCR required" value={ocrRequiredDocuments} note="No text invented" icon={AlertTriangle} />
+        <MetricCard label="Extraction failed" value={failedDocuments} note="Originals remain available" icon={AlertTriangle} />
+        <MetricCard label="Source pages" value={extractedPages} note="Database-backed text pages" icon={Scale} />
       </section>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.3fr_.7fr]">

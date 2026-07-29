@@ -116,7 +116,7 @@ export function AuditLogPage() {
             <select value={type} onChange={(event) => setType(event.target.value)} className="min-h-11 w-full rounded-lg border border-[var(--border-strong)] bg-white pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--focus)]">
               <option value="all">All event types</option>
               <option value="case">Cases</option>
-              <option value="document">Document metadata</option>
+              <option value="document">Documents and extraction</option>
               <option value="successful">Authentication</option>
               <option value="workflow">Workflow</option>
               <option value="analysis">Analysis findings</option>

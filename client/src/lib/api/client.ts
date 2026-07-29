@@ -2,6 +2,7 @@ import type {
   BackendAuditEvent,
   BackendCase,
   BackendCaseCreate,
+  BackendDocumentDetail,
   BackendDocumentMetadata,
   BackendDocumentMetadataCreate,
   BackendErrorResponse,
@@ -25,6 +26,7 @@ type ErrorKind =
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "CONFLICT"
+  | "PAYLOAD_TOO_LARGE"
   | "VALIDATION"
   | "SERVER_ERROR"
   | "INVALID_CONFIGURATION";
@@ -48,6 +50,7 @@ function kindForStatus(status: number): ErrorKind {
   if (status === 403) return "FORBIDDEN";
   if (status === 404) return "NOT_FOUND";
   if (status === 409) return "CONFLICT";
+  if (status === 413) return "PAYLOAD_TOO_LARGE";
   if (status === 422) return "VALIDATION";
   return "SERVER_ERROR";
 }
@@ -60,14 +63,14 @@ async function parseBackendError(response: Response): Promise<BackendApiError> {
     payload = null;
   }
   const requestId =
-    response.headers.get("X-Request-ID") ?? payload?.error.request_id ?? null;
+    response.headers.get("X-Request-ID") ?? payload?.error?.request_id ?? null;
   return new BackendApiError(
-    payload?.error.message ?? `Backend request failed with ${response.status}.`,
+    payload?.error?.message ?? `Backend request failed with ${response.status}.`,
     kindForStatus(response.status),
     response.status,
-    payload?.error.code ?? "unknown_backend_error",
+    payload?.error?.code ?? "unknown_backend_error",
     requestId,
-    payload?.error.details?.map(
+    payload?.error?.details?.map(
       (detail) => `${detail.location}: ${detail.message}`,
     ) ?? [],
   );
@@ -83,11 +86,16 @@ export class HttpLegalBridgeClient implements LegalBridgeClient {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
   }
 
-  private async raw<T>(path: string, init?: RequestInit): Promise<T> {
+  private async rawResponse(path: string, init?: RequestInit): Promise<Response> {
     let response: Response;
     const headers = new Headers(init?.headers);
     headers.set("Accept", "application/json");
-    if (init?.body) headers.set("Content-Type", "application/json");
+    if (
+      init?.body &&
+      !(typeof FormData !== "undefined" && init.body instanceof FormData)
+    ) {
+      headers.set("Content-Type", "application/json");
+    }
     try {
       response = await fetch(`${this.baseUrl}${path}`, {
         ...init,
@@ -102,6 +110,11 @@ export class HttpLegalBridgeClient implements LegalBridgeClient {
       );
     }
     if (!response.ok) throw await parseBackendError(response);
+    return response;
+  }
+
+  private async raw<T>(path: string, init?: RequestInit): Promise<T> {
+    const response = await this.rawResponse(path, init);
     if (response.status === 204) return undefined as T;
     return (await response.json()) as T;
   }
@@ -184,6 +197,49 @@ export class HttpLegalBridgeClient implements LegalBridgeClient {
     }
   }
 
+  private async authenticatedResponse(
+    path: string,
+    init?: RequestInit,
+    retry = true,
+  ): Promise<Response> {
+    let session = readBackendSession();
+    if (!session) {
+      throw new BackendApiError(
+        "Authentication is required.",
+        "UNAUTHORIZED",
+        401,
+        "missing_session",
+      );
+    }
+    if (retry && session.accessTokenExpiresAt <= Date.now()) {
+      await this.rotateRefreshToken();
+      session = readBackendSession();
+      if (!session) {
+        throw new BackendApiError(
+          "The session has expired. Sign in again.",
+          "UNAUTHORIZED",
+          401,
+          "missing_session",
+        );
+      }
+    }
+    const headers = new Headers(init?.headers);
+    headers.set("Authorization", `Bearer ${session.accessToken}`);
+    try {
+      return await this.rawResponse(path, { ...init, headers });
+    } catch (error) {
+      if (
+        retry &&
+        error instanceof BackendApiError &&
+        error.status === 401
+      ) {
+        await this.rotateRefreshToken();
+        return this.authenticatedResponse(path, init, false);
+      }
+      throw error;
+    }
+  }
+
   async login(request: BackendLoginRequest): Promise<BackendTokenResponse> {
     const response = await this.raw<BackendTokenResponse>("/api/v1/auth/login", {
       method: "POST",
@@ -243,6 +299,46 @@ export class HttpLegalBridgeClient implements LegalBridgeClient {
     return this.authenticated(
       `/api/v1/cases/${encodeURIComponent(caseId)}/documents`,
       { method: "POST", body: JSON.stringify(request) },
+    );
+  }
+
+  uploadDocument(
+    caseId: string,
+    file: File,
+    category: string,
+  ): Promise<BackendDocumentDetail> {
+    const body = new FormData();
+    body.append("file", file, file.name);
+    body.append("category", category);
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/documents/upload`,
+      { method: "POST", body },
+    );
+  }
+
+  getDocumentDetail(
+    caseId: string,
+    documentId: string,
+  ): Promise<BackendDocumentDetail> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/documents/${encodeURIComponent(documentId)}`,
+    );
+  }
+
+  async downloadDocument(caseId: string, documentId: string): Promise<Blob> {
+    const response = await this.authenticatedResponse(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/documents/${encodeURIComponent(documentId)}/download`,
+    );
+    return response.blob();
+  }
+
+  reprocessDocument(
+    caseId: string,
+    documentId: string,
+  ): Promise<BackendDocumentDetail> {
+    return this.authenticated(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/documents/${encodeURIComponent(documentId)}/reprocess`,
+      { method: "POST" },
     );
   }
 
@@ -349,6 +445,42 @@ export class MockLegalBridgeClient implements LegalBridgeClient {
       "SERVER_ERROR",
       501,
       "mock_local_only",
+    );
+  }
+
+  uploadDocument(): Promise<BackendDocumentDetail> {
+    throw new BackendApiError(
+      "Binary upload requires HTTP data mode.",
+      "SERVER_ERROR",
+      501,
+      "mock_upload_unavailable",
+    );
+  }
+
+  getDocumentDetail(): Promise<BackendDocumentDetail> {
+    throw new BackendApiError(
+      "Stored source pages require HTTP data mode.",
+      "SERVER_ERROR",
+      501,
+      "mock_source_pages_unavailable",
+    );
+  }
+
+  downloadDocument(): Promise<Blob> {
+    throw new BackendApiError(
+      "Original download requires HTTP data mode.",
+      "SERVER_ERROR",
+      501,
+      "mock_download_unavailable",
+    );
+  }
+
+  reprocessDocument(): Promise<BackendDocumentDetail> {
+    throw new BackendApiError(
+      "Reprocessing requires HTTP data mode.",
+      "SERVER_ERROR",
+      501,
+      "mock_reprocess_unavailable",
     );
   }
 

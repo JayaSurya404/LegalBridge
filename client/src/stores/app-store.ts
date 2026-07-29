@@ -8,7 +8,10 @@ import {
   seedAuditEvents,
   seedCase,
 } from "@/lib/demo/seed";
-import type { BackendDocumentMetadataCreate } from "@/lib/api/backend-types";
+import type {
+  BackendDocumentDetail,
+  BackendDocumentMetadataCreate,
+} from "@/lib/api/backend-types";
 import {
   BackendApiError,
   legalBridgeClient,
@@ -64,6 +67,20 @@ interface AppState {
   registerDocumentMetadata: (
     caseId: string,
     document: BackendDocumentMetadataCreate,
+  ) => Promise<DocumentMeta>;
+  uploadPersistentDocument: (
+    caseId: string,
+    file: File,
+    category: string,
+  ) => Promise<DocumentMeta>;
+  getDocumentDetail: (
+    caseId: string,
+    documentId: string,
+  ) => Promise<BackendDocumentDetail>;
+  downloadDocument: (caseId: string, documentId: string) => Promise<Blob>;
+  reprocessDocument: (
+    caseId: string,
+    documentId: string,
   ) => Promise<DocumentMeta>;
   deleteDocumentMetadata: (
     caseId: string,
@@ -310,6 +327,15 @@ export const useAppStore = create<AppState>()(
         set({ workspaceLoading: true, workspaceError: null });
         try {
           const backendCases = await legalBridgeClient.listCases();
+          const documentSets = await Promise.all(
+            backendCases.map(async (backendCase) => ({
+              caseId: backendCase.id,
+              documents: await legalBridgeClient.listDocuments(backendCase.id),
+            })),
+          );
+          const documentsByCase = new Map(
+            documentSets.map((entry) => [entry.caseId, entry.documents]),
+          );
           set((state) => {
             const mapped = backendCases.map((backendCase) => {
               const existing = state.cases.find(
@@ -320,7 +346,14 @@ export const useAppStore = create<AppState>()(
                       record.reference === BACKEND_DEMO_CASE_NUMBER ||
                       record.reference === seedCase.reference)),
               );
-              return mapBackendCase(backendCase, existing);
+              const mappedCase = mapBackendCase(backendCase, existing);
+              return {
+                ...mappedCase,
+                documents: mergeBackendDocuments(
+                  mappedCase,
+                  documentsByCase.get(backendCase.id) ?? [],
+                ),
+              };
             });
             const demo = mapped.find(
               (record) => record.reference === BACKEND_DEMO_CASE_NUMBER,
@@ -440,6 +473,44 @@ export const useAppStore = create<AppState>()(
               ...record.documents.filter((item) => item.id !== document.id),
               document,
             ],
+          })),
+        }));
+        return document;
+      },
+      uploadPersistentDocument: async (caseId, file, category) => {
+        const backendDocument = await legalBridgeClient.uploadDocument(
+          caseId,
+          file,
+          category,
+        );
+        const document = mapBackendDocument(backendDocument);
+        set((state) => ({
+          cases: updateCase(state.cases, caseId, (record) => ({
+            ...record,
+            documents: [
+              ...record.documents.filter((item) => item.id !== document.id),
+              document,
+            ],
+          })),
+        }));
+        return document;
+      },
+      getDocumentDetail: (caseId, documentId) =>
+        legalBridgeClient.getDocumentDetail(caseId, documentId),
+      downloadDocument: (caseId, documentId) =>
+        legalBridgeClient.downloadDocument(caseId, documentId),
+      reprocessDocument: async (caseId, documentId) => {
+        const backendDocument = await legalBridgeClient.reprocessDocument(
+          caseId,
+          documentId,
+        );
+        const document = mapBackendDocument(backendDocument);
+        set((state) => ({
+          cases: updateCase(state.cases, caseId, (record) => ({
+            ...record,
+            documents: record.documents.map((item) =>
+              item.id === document.id ? document : item,
+            ),
           })),
         }));
         return document;

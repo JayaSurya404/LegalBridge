@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     refresh_token_days: int = Field(default=7, ge=1, le=30)
     jwt_algorithm: Literal["HS256"] = "HS256"
     jwt_secret: str = Field(default=DEVELOPMENT_JWT_SECRET, min_length=32)
+    storage_root: Path = SERVER_ROOT / "data" / "uploads"
+    max_upload_bytes: int = Field(default=50 * 1024 * 1024, ge=1)
+    ocr_enabled: bool = False
+    tesseract_command: str | None = None
+    extraction_text_limit: int = Field(default=2_000_000, ge=10_000)
+    extraction_page_text_limit: int = Field(default=200_000, ge=1_000)
+    extraction_max_pages: int = Field(default=1_000, ge=1, le=10_000)
 
     @field_validator("api_v1_prefix")
     @classmethod
@@ -62,6 +69,19 @@ class Settings(BaseSettings):
         if not normalized.startswith(supported_prefixes):
             raise ValueError("DATABASE_URL must use sqlite+aiosqlite or postgresql+asyncpg.")
         return normalized
+
+    @field_validator("storage_root")
+    @classmethod
+    def normalize_storage_root(cls, value: Path) -> Path:
+        return value.expanduser().resolve()
+
+    @field_validator("tesseract_command")
+    @classmethod
+    def normalize_tesseract_command(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
     @model_validator(mode="after")
     def reject_development_secret_in_production(self) -> "Settings":

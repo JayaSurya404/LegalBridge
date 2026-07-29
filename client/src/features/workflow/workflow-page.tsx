@@ -57,7 +57,7 @@ export function WorkflowPage() {
       {workflow.status === "idle" && (
         <Button
           disabled={!documentsReady}
-          title={documentsReady ? "Start deterministic workflow" : "Add and process document metadata first"}
+          title={documentsReady ? "Start deterministic workflow" : "Add a stored or closed fixture source first"}
           onClick={() => startWorkflow(caseId)}
         >
           <Play className="size-4" aria-hidden="true" /> Start
@@ -88,14 +88,14 @@ export function WorkflowPage() {
       {!isClosedDemoCase && (
         <Card className="mb-6 border-blue-200 bg-blue-50">
           <CardContent className="p-5 text-sm leading-6 text-blue-950">
-            This backend case can exercise the fixed frontend agent order, controls, timing, and locally retained workflow state. It will not produce case-specific facts, findings, authorities, or a motion because no parser or backend agent execution exists. Use the designated synthetic matter for the closed analysis walkthrough.
+            This backend case can exercise the fixed frontend agent order, controls, timing, and locally retained workflow state. Stored documents may have extracted source pages, but no backend agent, AI reasoning, research, or motion generation uses them. Use the designated synthetic matter for the closed analysis walkthrough.
           </CardContent>
         </Card>
       )}
       {workflow.status === "idle" && !documentsReady && (
         <Card className="mb-6 border-amber-200 bg-amber-50">
           <CardContent className="p-5 text-sm leading-6 text-amber-950">
-            Workflow start is locked until this case has at least one metadata or closed fixture source record. Registering metadata does not parse or analyse the document.
+            Workflow start is locked until this case has at least one stored or closed fixture source. Real extraction only produces source pages; it does not generate facts, legal analysis, citations, or a motion.
           </CardContent>
         </Card>
       )}

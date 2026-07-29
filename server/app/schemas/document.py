@@ -1,4 +1,4 @@
-"""Metadata-only document request and response schemas."""
+"""Document metadata, extraction lifecycle, and source-page schemas."""
 
 from datetime import datetime
 from pathlib import PurePath
@@ -62,7 +62,32 @@ class DocumentMetadataCreate(BaseModel):
         return self
 
 
-class DocumentMetadataResponse(ORMResponse):
+DocumentExtractionStatus = Literal[
+    "metadata_only",
+    "uploaded",
+    "processing",
+    "processed",
+    "partially_processed",
+    "ocr_required",
+    "failed",
+]
+
+
+class DocumentPageResponse(ORMResponse):
+    id: str
+    organization_id: str
+    case_id: str
+    document_id: str
+    page_number: int
+    page_label: str
+    extracted_text: str
+    character_count: int
+    extraction_method: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class DocumentSummaryResponse(ORMResponse):
     id: str
     organization_id: str
     case_id: str
@@ -72,6 +97,23 @@ class DocumentMetadataResponse(ORMResponse):
     sha256: str
     category: str
     status: Literal["metadata_only"]
+    extraction_status: DocumentExtractionStatus
+    parser_name: str | None
+    parser_version: str | None
+    page_count: int
+    extracted_character_count: int
+    extraction_error: str | None
+    processed_at: datetime | None
+    original_uploaded_at: datetime | None
+    binary_exists: bool
     created_by_id: str
     created_at: datetime
     updated_at: datetime
+
+
+class DocumentDetailResponse(DocumentSummaryResponse):
+    pages: list[DocumentPageResponse]
+
+
+# Backward-compatible name used by the Phase 3 metadata route and tests.
+DocumentMetadataResponse = DocumentSummaryResponse

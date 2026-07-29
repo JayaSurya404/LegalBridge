@@ -6,7 +6,7 @@ Repository: `D:\LegalBridge`
 
 Branch: `main`
 
-Checkpoint: Phase 4 complete — real Next.js to FastAPI integration
+Checkpoint: combined Phase 5–6 complete — real private binary storage and source extraction
 
 ## Product boundary
 
@@ -15,140 +15,157 @@ LegalBridge India remains an attorney-assistance hackathon prototype for problem
 - “Autonomous until review, never autonomous at filing.”
 - “No source, no legal claim. No lawyer approval, no export.”
 
-Authentication and persistence are now real. Legal analysis is not: the facts, timeline, contradictions, potential procedural concerns, authorities, strategies, citations, motion, workflow execution, token/cost metrics, and related analysis audit entries remain closed deterministic synthetic fixtures requiring attorney verification.
+Binary storage, source extraction, and extracted-page persistence are real. Legal analysis is not generated from uploaded documents. The facts, timeline, contradictions, potential procedural concerns, authorities, strategies, citations, motion, workflow execution, token/cost metrics, and related analysis audit entries shown for the designated demonstration case remain closed deterministic synthetic fixtures requiring attorney verification.
 
-## Preserved Phase 1–3 state
+## Preserved Phase 1–4 state
 
-- The responsive Next.js App Router workspace, accessibility behavior, deterministic 15-agent frontend simulation, legal-analysis views, Ethics Auditor, Motion Studio, Citation Firewall, version-bound attorney approval, approval invalidation, print gate, observability, and display settings remain available.
-- The Phase 3 backend remains intact: organisation isolation, users and roles, Argon2 password hashing, access tokens, rotating and revocable refresh sessions, cases, document metadata, audit events, SQLAlchemy models, SQLite development persistence, PostgreSQL-compatible modeling, Alembic migrations, controlled errors, request IDs, CORS, readiness, and capability reporting.
-- No Phase 4 backend route, schema, model, migration, seed, or test was changed.
-- The real local SQLite database was preserved.
+- The responsive Next.js App Router workspace, accessibility behavior, deterministic synthetic legal-analysis views, Ethics Auditor, Motion Studio, Citation Firewall, version-bound attorney approval, approval invalidation, print gate, observability, and display settings remain available.
+- Organisation isolation, users and RBAC, Argon2 password hashing, access tokens, rotating and revocable refresh sessions, cases, audit events, async SQLAlchemy persistence, SQLite development storage, PostgreSQL-compatible modeling, Alembic migrations, controlled errors, request IDs, CORS, readiness, and capability reporting remain intact.
+- Real FastAPI sign-in, browser session restoration, refresh-token rotation, persistent case listing/creation, audit synchronization, and the HTTP/mock data-provider boundary remain intact.
+- The existing database was migrated in place. Existing metadata-only document records remain valid with `metadata_only` extraction status.
+- The existing demonstration case is preserved and matched by case number `LB-DEMO-2026-001`.
 
-## Phase 4 frontend integration
+## Combined Phase 5–6 backend
 
-### Environment and client selection
+### Private storage and validation
 
-- `NEXT_PUBLIC_DATA_MODE` accepts `mock` or `http`.
-- HTTP mode requires a valid `NEXT_PUBLIC_API_BASE_URL`.
-- The ignored `client/.env.local` selects `http://127.0.0.1:8000` for local development.
-- Public environment variables contain no secrets.
-- HTTP errors remain visible and never trigger a silent mock fallback.
+- Multipart uploads stream in bounded chunks to a temporary staging file beneath the configured storage root.
+- The default ignored storage root is `server/data/uploads`.
+- Final keys use opaque server identifiers: `{organization_id}/{case_id}/{document_id}/original.{extension}`.
+- Original filenames are metadata only and never become path components or API-exposed storage locations.
+- A validated staging file is atomically moved to its final location.
+- Failure cleanup removes staging files; database failure cleanup removes the stored binary.
+- Download, reprocessing, and deletion resolve paths through the same root-contained storage service.
+- The server enforces filename safety, supported extension, declared MIME type, non-empty input, and a configurable 50 MB default while streaming.
+- PDF requires `%PDF-`; DOCX requires a safe ZIP container with `[Content_Types].xml` and `word/document.xml`; TXT uses controlled binary checks and decoding.
+- DOCX ZIP entry count, expanded size, and compression-ratio limits reduce archive-bomb risk.
+- SHA-256 is computed by the server while streaming and is authoritative.
+- Duplicate content within one case returns HTTP 409.
 
-### Authentication and session behavior
+### Extraction and persistence
 
-- The sign-in form collects organisation workspace slug, email, and password using React Hook Form and Zod.
-- It provides accessible validation, show/hide password, loading state, real backend errors, request IDs when present, and attorney credential autofill.
-- Login, refresh, logout, and current-user verification use the Phase 3 FastAPI endpoints.
-- The hackathon session stores the user, access token, rotating refresh token, and access-token expiry in `sessionStorage`.
-- Tokens and the current user are excluded from persisted Zustand state and `localStorage`.
-- Browser refresh restores the session and verifies it through `/api/v1/auth/me`.
-- Authenticated requests pre-emptively refresh expired access tokens and retry once after a 401.
-- A module-level shared refresh promise allows only one token rotation at a time.
-- Refresh failure clears session storage and protected workspace state.
-- Logout attempts backend revocation and always clears the local session, including during backend unavailability.
-- Protected routes wait for Zustand hydration and session restoration, redirect safely to sign-in, and retain a valid internal requested route.
+- Migration `0002_phase5_6_document_ingestion` adds storage, parser, status, count, error, and timestamp fields without destroying existing document records.
+- `document_pages` persists organisation, case, document, 1-based page number, label, normalized extracted text, character count, extraction method, and timestamps.
+- Document/page foreign keys cascade on deletion, and document/page-number uniqueness is enforced.
+- PyMuPDF extracts one persisted record for every physical PDF page.
+- PDF pages without meaningful embedded text are OCRed only when OCR is enabled and Tesseract is available. Otherwise they retain empty text and report `ocr_required`; mixed documents report `partially_processed`.
+- python-docx extracts headings, paragraphs, and tables in stable document order into explicitly labelled logical sections. These are not represented as physical pages.
+- TXT decoding prefers BOM-aware UTF-8, UTF-8, confidently detected UTF-16, and a controlled charset-normalizer fallback. Form feeds define logical pages when present; otherwise deterministic text chunks are used.
+- Page-count and per-page/total character limits bound extraction. Parser failures become safe status messages without browser-visible or database-persisted stack traces.
+- Extraction performs no legal reasoning and never fabricates source text.
 
-`sessionStorage` is suitable only for this hackathon checkpoint. Production should use stronger secure, HttpOnly, same-site cookie controls and appropriate CSRF protections.
+### API and permissions
 
-### Persistent cases
+- `GET /api/v1/cases/{case_id}/documents`
+- `POST /api/v1/cases/{case_id}/documents` for compatible metadata-only registration
+- `POST /api/v1/cases/{case_id}/documents/upload`
+- `GET /api/v1/cases/{case_id}/documents/{document_id}`
+- `GET /api/v1/cases/{case_id}/documents/{document_id}/download`
+- `POST /api/v1/cases/{case_id}/documents/{document_id}/reprocess`
+- `DELETE /api/v1/cases/{case_id}/documents/{document_id}`
 
-- Case lists load from FastAPI after authentication and can be refreshed.
-- Search, status filters, review filters, backend error messaging, and database-ID navigation are retained.
-- The accessible six-step case wizard persists title, unique case number, allegation summary, allegation type, court/forum, and jurisdiction.
-- The signed-in attorney is assigned when the authenticated role is `attorney`.
-- Duplicate case-number conflicts and structured validation errors are shown without collecting real confidential data.
-- New backend cases receive empty analysis, workflow outputs explaining the boundary, and no copied demo timeline, contradictions, findings, authorities, strategies, citations, or motion.
+All document operations enforce organisation and case isolation. Reviewers may list, inspect, and download. Attorneys and administrators may additionally upload, reprocess, and delete.
 
-Backend case `LB-DEMO-2026-001` is matched by case number. Its database ID is authoritative for routes and API calls; backend metadata is authoritative for identity. Only this case receives the existing closed synthetic analysis fixture. Safe browser-local workflow progress, motion edits, and approval state are preserved across backend refreshes.
+Audit events cover upload start, validation failure, storage completion, extraction start, processed/partial/OCR-required/failed outcomes, download, reprocessing, deletion, and demonstration bootstrap. Audit metadata does not include tokens, passwords, storage paths, or extracted text.
 
-### Document metadata
+## Demonstration sources
 
-- The document page lists, creates, and deletes real backend document metadata.
-- It accepts PDF, TXT, and DOCX selections, validates filename safety, exact extension/MIME agreement, non-empty size, the 50 MB limit, duplicates, and the 12-record case limit.
-- Browser Web Crypto computes SHA-256 locally.
-- Only `original_filename`, `content_type`, `size_bytes`, `sha256`, and `category` are sent to FastAPI.
-- Deterministic progress covers hashing and registration.
-- Duplicate SHA-256 conflicts and backend request IDs are surfaced.
-- Selected `File` objects are discarded after the registration batch.
-- Backend audit events are resynchronised after metadata creation and deletion.
-- Closed synthetic source fixtures are visibly separated from backend metadata and cannot be deleted through the metadata API.
+The idempotent backend initializer now generates, stores, extracts, and persists three valid synthetic files for `LB-DEMO-2026-001`:
 
-No file bytes are uploaded or persisted. No parsing, OCR, transcription, malware scanning, or AI analysis occurs.
+1. A three-page synthetic PDF court transcript
+2. A structured synthetic DOCX police report with headings and tables
+3. A multi-section synthetic TXT arrest memo
 
-### Audit synchronisation
+Every document identifies itself as fictional hackathon data, not an official record. The bootstrap uses the production storage and extraction services, computes real SHA-256 values, and does not duplicate records when rerun.
 
-- Case audit events load from FastAPI and map into the existing audit interface.
-- Events show actor, event type, related entity, timestamp, metadata, and source.
-- Backend authentication, case, and document-metadata events are authoritative.
-- Closed synthetic workflow and analysis events remain available only for the demonstration case.
-- Merging deduplicates by event ID and the UI sorts newest first.
-- Mount effects do not manufacture duplicate events during React rerenders.
+Exact command:
 
-### Workspace shell
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\init_backend_data.ps1
+```
 
-- The shell waits for both persisted-store hydration and verified backend-session restoration.
-- It shows the authenticated user’s name and role.
-- It includes persistent workspace refresh and real backend logout.
-- Desktop sidebar, mobile drawer, keyboard behavior, focus states, loading states, and explicit backend-error feedback remain.
-- Product copy distinguishes real persistence from synthetic legal analysis.
+The command applies Alembic migrations, runs the existing base bootstrap, then runs the document bootstrap. It stops on failure.
 
-## Local scripts
+## Frontend integration
 
-`scripts/start_fullstack.ps1`:
+- The existing Phase 4 API client, session refresh flow, contracts, mappers, and Zustand store now handle multipart upload, document detail, source pages, original-file blobs, and reprocessing.
+- Browser SHA-256 is preliminary progress only; displayed persisted metadata comes from the server-authoritative digest.
+- The Documents workspace validates selections, uploads actual bytes, shows deterministic progress, and surfaces structured 400/403/404/409/413/422 errors.
+- Document summaries show extraction status, page count, character count, parser, binary availability, and actionable error/OCR messages.
+- Attorneys and administrators receive download, reprocess, and delete controls; reviewer restrictions are explained.
+- The source viewer expands persisted physical PDF pages or clearly labelled logical DOCX/TXT sections, supports text copying, and represents empty text truthfully.
+- Refresh resynchronizes documents and audit events from FastAPI.
+- Case and dashboard summaries use backend document records for document, processed, OCR-required, failed, and extracted-page counts.
+- Newly uploaded documents do not receive synthetic analysis. The closed synthetic workflow remains isolated to the designated demonstration case.
 
-- Resolves the repository root.
-- Verifies pnpm and `server/.venv`.
-- Starts FastAPI on port 8000 and Next.js on port 3000 in separate PowerShell windows only when each port is free.
-- Does not start duplicate processes for occupied ports.
-- Prints the frontend URL, Swagger URL, workspace slug, and development credentials.
+## Optional OCR
 
-Run:
+- `LEGALBRIDGE_OCR_ENABLED` defaults to `false`.
+- `LEGALBRIDGE_TESSERACT_COMMAND` may point to an already installed Tesseract executable.
+- The Python wrapper is installed in `server/.venv`; Tesseract itself was not installed globally.
+- Text PDF, DOCX, and TXT processing works without Tesseract.
+- When OCR is unavailable, the system does not claim OCR occurred or invent text.
+
+## Local commands
+
+Initialize or refresh demo data:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\init_backend_data.ps1
+```
+
+Start the full stack:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start_fullstack.ps1
 ```
 
-`scripts/smoke_phase4.ps1`:
+Run the temporary-port ingestion smoke:
 
-- Accepts a requested port from 8765 through 8799 and selects another free port in that range when necessary.
-- Starts a hidden temporary FastAPI process.
-- Verifies health, real login, `/auth/me`, the persistent demonstration case, and refresh-token rotation.
-- Stops that exact temporary process in `finally`.
-- Does not depend on ports 3000 or 8000.
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke_phase5_6.ps1 -Port 8766
+```
+
+The smoke script starts a hidden FastAPI process on a free port from 8765–8799, signs in, creates a clearly synthetic case, uploads real TXT bytes, verifies persisted extraction text, downloads byte-equal content, verifies duplicate rejection, deletes the document, archives the case, deletes its temporary file, and stops the exact process in `finally`.
 
 ## Verified results
 
 Verification completed on 2026-07-29:
 
-- Backend Ruff: `server/.venv/Scripts/python.exe -m ruff check --no-cache app tests` — passed, “All checks passed.” The initial cache-enabled invocation was blocked before linting by managed `.ruff_cache` permissions.
-- Phase 3 pytest: `server/.venv/Scripts/python.exe -m pytest tests --basetemp C:\tmp\legalbridge-phase4-pytest-019fad6f` — 17 passed, 1 third-party Starlette deprecation warning, in 3.93 seconds. Managed temp permissions blocked the initial setup attempts before any test ran; the final isolated run was authorised outside the sandbox.
-- Frontend type-check: `pnpm typecheck` — passed after correcting the syntax failure found by its first run.
-- Frontend lint: `pnpm lint` — passed with zero warnings after correcting the React effect-pattern failure found by its first run.
+- Dependency installation: the exact Phase 5–6 packages were installed only in `server/.venv`.
+- Alembic: migration `0002_phase5_6_document_ingestion` applied successfully to the preserved local database.
+- Demo bootstrap: passed and reported three demonstration document records; repeat execution is covered by the backend idempotency test.
+- Ruff safe fixes: completed; two safe fixes were applied.
+- Ruff formatter: completed; five Python files were formatted.
+- Final Ruff: `server/.venv/Scripts/python.exe -m ruff check --no-cache app tests` — passed, `All checks passed!`
+- Backend pytest: `server/.venv/Scripts/python.exe -m pytest tests --basetemp C:\tmp\legalbridge-phase5-6-pytest-019fad6f` — 24 passed with 6 third-party Starlette/PyMuPDF deprecation warnings in 10.02 seconds.
+- Frontend type-check: `pnpm typecheck` — passed.
+- Frontend lint: `pnpm lint` — passed with zero warnings.
 - Frontend production build: `pnpm build` — passed with Next.js 16.2.12 using the HTTP `.env.local`.
-- Phase 4 smoke: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke_phase4.ps1 -Port 8765` — passed on `http://127.0.0.1:8765`; health, login, `/auth/me`, persistent cases, and refresh rotation verified.
-- No browser automation was run.
-- No frontend or backend development server was left running by verification.
+- Live smoke: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke_phase5_6.ps1 -Port 8766` — passed on `http://127.0.0.1:8766`; upload, extraction, persisted pages, byte-equal download, duplicate HTTP 409, deletion, archival, and cleanup were verified.
+- No browser automation was run, as requested.
+- The smoke process stopped successfully; ports 8000 and 8766 were inactive at final inspection. Port 3000 had an existing active listener and was not started or altered by the Phase 5–6 verification.
+- `git diff --check` passed; its only output was the repository's existing Windows LF-to-CRLF conversion notices.
 
 ## Explicitly not implemented
 
-- Binary file upload or object/cloud storage
-- PDF or DOCX parsing
-- OCR or audio transcription
+- Statutory corpus or precedent corpus ingestion/retrieval
+- Embeddings, pgvector, hybrid search, or RAG
 - AI/model providers or Gemini calls
-- LangGraph or backend multi-agent execution
-- RAG, embeddings, PostgreSQL activation, or pgvector
-- Real legal research, statutes, precedents, or a verified legal corpus
-- Real citation verification
-- Backend motion generation or server-side PDF generation
-- Digital signatures
+- LangGraph or real backend multi-agent reasoning
+- Legal Copilot or legal analysis derived from uploaded sources
+- Citation verification
+- Motion generation from uploaded documents
+- Attorney digital signatures
 - Automatic court filing
 - Docker or cloud deployment
 
+These belong to later phases. Combined Phase 7–8 was not started.
+
 ## Repository state
 
-- `.git`, branch `main`, history, and remote `origin` were preserved.
-- The working tree contains unstaged Phase 4 frontend, script, environment-example, ignore, and documentation changes.
-- `client/.env.local`, the real SQLite database, virtual environment, caches, bytecode, backups, and `server/*.egg-info/` are ignored.
-- No `server/*.egg-info` directory is present.
+- Repository `D:\LegalBridge`, `.git`, branch `main`, history, and remote `origin` (`https://github.com/JayaSurya404/LegalBridge.git`) were preserved.
+- The working tree intentionally contains unstaged combined Phase 5–6 backend, frontend, migration, script, test, ignore, and documentation changes.
+- `server/data/`, uploaded/generated binaries, extracted local user data, the SQLite database, `server/.env`, `server/.venv/`, `server/*.egg-info/`, Python/test caches, local backups, and `client/.env.local` are ignored.
+- No `server/legalbridge.egg-info` directory or smoke temporary directory is present.
 - No commit, stage, push, pull, merge, rebase, branch change, or remote change occurred.
-- Phase 5 was not started.
