@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import httpx
 from datetime import date, datetime, time
 from typing import Any
 
@@ -30,6 +31,7 @@ from app.models.analysis import (
 from app.models.case import LegalCase
 from app.models.document import DocumentRecord
 from app.models.document_page import DocumentPage
+from app.core.config import get_settings
 from app.models.user import User
 from app.services.analysis import cosine_similarity, hashed_vector, lexical_score
 
@@ -400,6 +402,52 @@ async def _similar_cases(
     return results
 
 
+async def _nvidia_nim_answer(
+    question: str,
+    selected: list[tuple[float, DocumentPage, DocumentRecord]],
+) -> str | None:
+    """Use NIM only with labelled extracted evidence; return None for fallback."""
+    settings = get_settings()
+    if settings.ai_provider != "nvidia_nim":
+        return None
+    context = "\n\n".join(
+        f"SOURCE [{document.original_filename} p.{page.page_number}]\n{page.extracted_text[:5000]}"
+        for _, page, document in selected[:16]
+    )
+    if not context:
+        return None
+    payload = {
+        "model": settings.nvidia_nim_model,
+        "temperature": 0,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are LegalBridge Copilot. Answer only from the supplied SOURCE blocks. "
+                    "Do not invent facts, files, pages, statutes, or precedents. Use concise sections "
+                    "for Findings, Evidence, and Attorney review. Every factual statement must include "
+                    "the exact [filename p.number] citation from a supplied source."
+                ),
+            },
+            {"role": "user", "content": f"Question: {question}\n\n{context}"},
+        ],
+    }
+    try:
+        async with httpx.AsyncClient(timeout=25) as client:
+            response = await client.post(
+                f"{settings.nvidia_nim_base_url.rstrip('/')}/chat/completions",
+                headers={"Authorization": f"Bearer {settings.nvidia_nim_api_key}"},
+                json=payload,
+            )
+            response.raise_for_status()
+        content = response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+        return content.strip() or None
+    except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError):
+        if not settings.ai_fallback_enabled:
+            raise
+        return None
+
+
 async def copilot_answer(
     session: AsyncSession,
     *,
@@ -498,6 +546,10 @@ async def copilot_answer(
         )
 
     references = _dedup_refs([_ref(p, d) for _, p, d in selected])
+
+    nim_answer = await _nvidia_nim_answer(question, selected)
+    if nim_answer is not None:
+        return nim_answer, references
 
     # ── route: report generation notice ──────────────────────────────────────
     if is_report:
