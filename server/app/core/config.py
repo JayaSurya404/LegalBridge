@@ -115,7 +115,7 @@ class Settings(BaseSettings):
     extraction_page_text_limit: int = Field(default=200_000, ge=1_000)
     extraction_max_pages: int = Field(default=1_000, ge=1, le=10_000)
     analysis_provider: Literal["deterministic", "future_ai"] = "deterministic"
-    ai_provider: Literal["deterministic", "gemini"] = Field(
+    ai_provider: Literal["deterministic", "gemini", "nvidia_nim"] = Field(
         default="deterministic",
         validation_alias=AliasChoices("AI_PROVIDER", "LEGALBRIDGE_AI_PROVIDER"),
     )
@@ -126,6 +126,22 @@ class Settings(BaseSettings):
     gemini_model: str = Field(
         default="gemini-2.5-flash",
         validation_alias=AliasChoices("GEMINI_MODEL", "LEGALBRIDGE_GEMINI_MODEL"),
+    )
+    nvidia_nim_base_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("NVIDIA_NIM_BASE_URL", "LEGALBRIDGE_NVIDIA_NIM_BASE_URL"),
+    )
+    nvidia_nim_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("NVIDIA_NIM_API_KEY", "LEGALBRIDGE_NVIDIA_NIM_API_KEY"),
+    )
+    nvidia_nim_model: str = Field(
+        default="meta/llama-3.1-70b-instruct",
+        validation_alias=AliasChoices("NVIDIA_NIM_MODEL", "LEGALBRIDGE_NVIDIA_NIM_MODEL"),
+    )
+    ai_fallback_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("AI_FALLBACK_ENABLED", "LEGALBRIDGE_AI_FALLBACK_ENABLED"),
     )
     review_pin: str = Field(default="2026", min_length=4)
 
@@ -186,6 +202,10 @@ class Settings(BaseSettings):
             )
         if self.ai_provider == "gemini" and not self.gemini_api_key:
             raise ValueError("Gemini requires GEMINI_API_KEY.")
+        if self.ai_provider == "nvidia_nim" and (
+            not self.nvidia_nim_base_url or not self.nvidia_nim_api_key
+        ):
+            raise ValueError("NVIDIA NIM requires NVIDIA_NIM_BASE_URL and NVIDIA_NIM_API_KEY.")
         return self
 
 

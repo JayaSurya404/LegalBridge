@@ -1,0 +1,9 @@
+Station Diary
+Case number: LB-CASE-2026-012
+Document date: 24 February 2026
+
+RECORD: officers_departure_time | 18:10 | Officers leave the station.
+RECORD: officer_arrival_time | 18:32 | Officers arrive at the recorded location.
+RECORD: search_start_time | 18:25 | Search commencement recorded before arrival.
+
+Fictional training dataset. Attorney review required; not legal advice.

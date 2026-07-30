@@ -19,6 +19,13 @@ from app.models.analysis import (
     StrategyRecommendation,
     TimelineEventRecord,
 )
+from app.models.copilot import (
+    CaseMemory,
+    CopilotArtifact,
+    CopilotClaimCitation,
+    CopilotExecutionRun,
+    DocumentPageEmbedding,
+)
 from app.models.audit import AuditEvent
 from app.models.auth_session import AuthSession
 from app.models.case import LegalCase
@@ -39,6 +46,11 @@ __all__ = [
     "CaseFact",
     "CitationCheckRecord",
     "ContradictionRecord",
+    "CaseMemory",
+    "CopilotArtifact",
+    "CopilotClaimCitation",
+    "CopilotExecutionRun",
+    "DocumentPageEmbedding",
     "CopilotMessage",
     "CopilotThread",
     "DocumentRecord",

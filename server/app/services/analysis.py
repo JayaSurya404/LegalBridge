@@ -21,8 +21,6 @@ from app.models.analysis import (
     CaseFact,
     CitationCheckRecord,
     ContradictionRecord,
-    CopilotMessage,
-    CopilotThread,
     EthicsFinding,
     LegalAuthority,
     MotionDraft,
@@ -128,6 +126,18 @@ FACT_LABELS = {
     "transport_arrival_time": "Transport arrival",
     "identification_time": "Identification event",
     "authorisation_time": "Authorisation event",
+    "search_start_time": "Search start",
+    "officer_arrival_time": "Officer arrival",
+    "officers_departure_time": "Officer departure",
+    "witness_event_time": "Witness event",
+    "laptop_sealed_time": "Laptop sealing",
+    "property_register_time": "Property register entry",
+    "cctv_export_time": "CCTV export",
+    "certificate_export_time": "Certificate export time",
+    "single_photo_identification_time": "Single-photo identification",
+    "formal_photo_array_time": "Formal photo array",
+    "bag_description": "Bag description",
+    "checksum": "CCTV checksum",
     "electronic_certificate": "Electronic-record certificate",
 }
 TIMELINE_TITLES = {
@@ -139,6 +149,16 @@ TIMELINE_TITLES = {
     "transport_arrival_time": "Transport arrival was recorded",
     "identification_time": "Witness identification was conducted",
     "authorisation_time": "Procedure authorisation was recorded",
+    "search_start_time": "Search began",
+    "officer_arrival_time": "Officers arrived",
+    "officers_departure_time": "Officers left the station",
+    "witness_event_time": "Witness event was recorded",
+    "laptop_sealed_time": "Laptop was sealed",
+    "property_register_time": "Property register entry was made",
+    "cctv_export_time": "CCTV export was created",
+    "certificate_export_time": "Certificate export time was recorded",
+    "single_photo_identification_time": "Single-photo identification was conducted",
+    "formal_photo_array_time": "Formal photo array was conducted",
     "seal_code": "Device was sealed",
 }
 CONTRADICTION_TITLES = {
@@ -151,6 +171,10 @@ CONTRADICTION_TITLES = {
     "electronic_export_time": "Electronic export time differs from the recorded chronology",
     "medical_time": "Medical observation time differs across records",
     "identification_time": "Identification sequence requires reconciliation",
+    "witness_event_time": "Witness accounts record different event times",
+    "bag_description": "Witnesses provide different bag descriptions",
+    "checksum": "CCTV checksum is inconsistent across records",
+    "cctv_export_time": "CCTV export time differs from the certificate chronology",
 }
 
 
@@ -655,6 +679,63 @@ async def run_case_analysis(
                     item,
                 )
             )
+        def first_time(key: str) -> tuple[time | None, SourceObservation | None]:
+            observation = next(iter(grouped.get(key, [])), None)
+            return (_observation_time(observation), observation) if observation else (None, None)
+
+        search_time, search_observation = first_time("search_start_time")
+        authorisation_time, authorisation_observation = first_time("authorisation_time")
+        arrival_time, arrival_observation = first_time("officer_arrival_time")
+        if search_time and authorisation_time and search_time < authorisation_time and search_observation:
+            procedural_candidates.append(
+                (
+                    "seizure",
+                    "Search-authorisation timing requires review",
+                    "The recorded search start precedes the recorded authorisation time.",
+                    search_observation,
+                )
+            )
+        if search_time and arrival_time and search_time < arrival_time and search_observation:
+            procedural_candidates.append(
+                (
+                    "timeline",
+                    "Officer-arrival chronology requires review",
+                    "The recorded search start precedes the recorded officer arrival time.",
+                    search_observation,
+                )
+            )
+        single_photo_time, single_photo_observation = first_time("single_photo_identification_time")
+        if single_photo_time and single_photo_observation:
+            procedural_candidates.append(
+                (
+                    "identification",
+                    "Single-photo identification requires review",
+                    "A single-photo identification is recorded and requires attorney verification.",
+                    single_photo_observation,
+                )
+            )
+        if "checksum" in contradiction_by_key:
+            procedural_candidates.append(
+                (
+                    "electronic_records",
+                    "CCTV checksum mismatch",
+                    "The export and certificate records contain different CCTV checksums.",
+                    contradiction_by_key["checksum"][1],
+                )
+            )
+        for missing_key, title, description in (
+            ("software_version", "Missing software version", "The digital evidence certificate does not state the export software version."),
+            ("clock_synchronisation", "Missing clock synchronisation status", "The digital evidence certificate does not state the clock synchronisation status."),
+            ("certificate_signing_time", "Missing certificate signing time", "The digital evidence certificate does not state the certificate signing time."),
+        ):
+            missing_observation = next(
+                (item for item in grouped.get(missing_key, []) if item.value.casefold() in {"missing", "not recorded", "absent"}),
+                None,
+            )
+            if missing_observation:
+                procedural_candidates.append(
+                    ("electronic_records", title, description, missing_observation)
+                )
         for index, (category, title, description, observation) in enumerate(procedural_candidates):
             session.add(
                 ProceduralFinding(
@@ -866,64 +947,6 @@ async def run_case_analysis(
                 ),
             ]
         )
-
-        thread = CopilotThread(
-            organization_id=organization_id,
-            case_id=case_id,
-            created_by_user_id=user_id,
-            title="Flagship case source review",
-        )
-        session.add(thread)
-        await session.flush()
-        source_refs = [
-            {
-                "document_id": sources[0][1].id,
-                "page_id": sources[0][0].id,
-                "label": (f"{sources[0][1].original_filename} p.{sources[0][0].page_number}"),
-            }
-        ]
-        messages = (
-            ("user", "Summarise this case.", []),
-            (
-                "assistant",
-                (
-                    f"{legal_case.case_number} is a synthetic demonstration matter with "
-                    f"{len(sources)} extracted source pages. The analysis records potential "
-                    "chronology, contradiction, and procedural review points. Attorney "
-                    "verification is required; this is not legal advice."
-                ),
-                source_refs,
-            ),
-            ("user", "What should the attorney review next?", []),
-            (
-                "assistant",
-                (
-                    "Review the strongest source differences, then confirm chronology, "
-                    "seizure handling, and every motion citation. No automatic court filing "
-                    "is available."
-                ),
-                source_refs,
-            ),
-            ("user", "Explain the draft motion.", []),
-            (
-                "assistant",
-                (
-                    "The draft organizes source-grounded facts, timeline items, potential "
-                    "procedural gaps, synthetic authorities, and attorney actions. It is a "
-                    "demonstration draft, not filing-ready."
-                ),
-                source_refs,
-            ),
-        )
-        for role, content, references in messages:
-            session.add(
-                CopilotMessage(
-                    thread_id=thread.id,
-                    role=role,
-                    content=content,
-                    source_references_json=references,
-                )
-            )
 
         output_counts = {
             "fact_extraction": 20,

@@ -1,0 +1,9 @@
+Case Source Checklist
+Case number: LB-CASE-2026-012
+Document date: 24 February 2026
+
+RECORD: person | Priya Shah | Witness source present.
+RECORD: person | Imran Ali | Witness source present.
+RECORD: electronic_certificate | incomplete | Certificate requires attorney verification.
+
+Fictional training dataset. Attorney review required; not legal advice.

@@ -524,6 +524,9 @@ class CopilotMessage(UUIDPrimaryKeyMixin, Base):
     source_references_json: Mapped[list[dict[str, str]]] = mapped_column(
         JSON, nullable=False, default=list
     )
+    metadata_json: Mapped[dict[str, object]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=utc_now, nullable=False
     )

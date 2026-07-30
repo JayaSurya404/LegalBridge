@@ -45,6 +45,11 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Casework workspace bootstrap failed with code $LASTEXITCODE."
     }
+
+    & $pythonExecutable -m app.scripts.bootstrap_case_11_12
+    if ($LASTEXITCODE -ne 0) {
+        throw "Case 11/12 bootstrap failed with code $LASTEXITCODE."
+    }
 }
 finally {
     Pop-Location
