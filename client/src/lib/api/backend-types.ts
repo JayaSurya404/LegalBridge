@@ -331,6 +331,7 @@ export interface BackendCopilotMessage {
     page_id?: string;
     label: string;
   }>;
+  metadata_json?: { provider_used?: "nvidia_nim" | "extractive_fallback" };
   created_at: string;
 }
 

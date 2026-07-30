@@ -311,6 +311,13 @@ export function CopilotPage() {
               <p className="text-xs font-bold uppercase tracking-wide text-[var(--slate)]">
                 {message.role === "assistant" ? "Legal Copilot" : "You"}
               </p>
+              {message.role === "assistant" && message.metadata_json?.provider_used && (
+                <p className="mt-1 text-xs font-medium text-[var(--saffron-dark)]">
+                  {message.metadata_json.provider_used === "nvidia_nim"
+                    ? "Generated with NVIDIA NIM"
+                    : "Extractive fallback"}
+                </p>
+              )}
               <p className="mt-2 whitespace-pre-wrap text-sm leading-7">
                 {message.content}
               </p>

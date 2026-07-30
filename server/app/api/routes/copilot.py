@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import Principal, get_current_principal
+from app.core.config import get_settings
 from app.api.routes.cases import get_organization_case
 from app.core.errors import ApplicationError
 from app.db.session import get_session
@@ -182,6 +183,14 @@ async def create_message(
         role="assistant",
         content=answer,
         source_references_json=references,
+        metadata_json={
+            "provider_used": (
+                "nvidia_nim"
+                if get_settings().ai_provider == "nvidia_nim"
+                and not answer.startswith("The retrieved case records contain")
+                else "extractive_fallback"
+            )
+        },
     )
     session.add(assistant_message)
     await session.flush()
@@ -194,7 +203,10 @@ async def create_message(
         entity_type="copilot_message",
         entity_id=assistant_message.id,
         case_id=case_id,
-        metadata={"source_reference_count": len(references)},
+        metadata={
+            "source_reference_count": len(references),
+            "provider_used": assistant_message.metadata_json["provider_used"],
+        },
     )
     await session.commit()
     return {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import httpx
 from datetime import date, datetime, time
@@ -38,6 +39,7 @@ from app.services.analysis import cosine_similarity, hashed_vector, lexical_scor
 _RECORD_PAT = re.compile(
     r"(?im)^RECORD:\s*([^|\r\n]+)\|\s*([^|\r\n]+)\|\s*([^\r\n]+)"
 )
+LOGGER = logging.getLogger("legalbridge.copilot")
 
 
 def serialize_model(model: object) -> dict[str, Any]:
@@ -436,13 +438,22 @@ async def _nvidia_nim_answer(
         async with httpx.AsyncClient(timeout=25) as client:
             response = await client.post(
                 f"{settings.nvidia_nim_base_url.rstrip('/')}/chat/completions",
-                headers={"Authorization": f"Bearer {settings.nvidia_nim_api_key}"},
+                headers={
+                    "Authorization": f"Bearer {settings.nvidia_nim_api_key}",
+                    "Content-Type": "application/json",
+                },
                 json=payload,
             )
             response.raise_for_status()
         content = response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
         return content.strip() or None
+    except httpx.HTTPStatusError as error:
+        LOGGER.warning("nvidia_nim_request_failed status=%s", error.response.status_code)
+        if not settings.ai_fallback_enabled:
+            raise
+        return None
     except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError):
+        LOGGER.warning("nvidia_nim_request_failed category=transport_or_response")
         if not settings.ai_fallback_enabled:
             raise
         return None
