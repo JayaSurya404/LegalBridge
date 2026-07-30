@@ -56,6 +56,12 @@ export interface LegalBridgeClient {
     user_message: BackendCopilotThread["messages"][number];
     assistant_message: BackendCopilotThread["messages"][number];
   }>;
+  downloadCopilotReport(
+    caseId: string,
+    threadId: string,
+    format: "pdf" | "docx",
+    kind: "chronology" | "contradictions" | "summary",
+  ): Promise<Blob>;
   createMotionVersion(
     caseId: string,
     motionId: string,

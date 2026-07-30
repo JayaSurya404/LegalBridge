@@ -404,6 +404,17 @@ async def _similar_cases(
     return results
 
 
+def _usable_nim_content(content: object) -> str | None:
+    if not isinstance(content, str):
+        return None
+    normalized = content.strip()
+    lower = normalized.casefold()
+    internal = ("we need to answer", "let us analyse", "we need craft")
+    if len(normalized) < 80 or any(marker in lower for marker in internal):
+        return None
+    return normalized
+
+
 async def _nvidia_nim_answer(
     question: str,
     selected: list[tuple[float, DocumentPage, DocumentRecord]],
@@ -425,10 +436,12 @@ async def _nvidia_nim_answer(
             {
                 "role": "system",
                 "content": (
-                    "You are LegalBridge Copilot. Answer only from the supplied SOURCE blocks. "
-                    "Do not invent facts, files, pages, statutes, or precedents. Use concise sections "
-                    "for Findings, Evidence, and Attorney review. Every factual statement must include "
-                    "the exact [filename p.number] citation from a supplied source."
+                    "You are LegalBridge Copilot. Start with a direct answer to the user's question. "
+                    "Answer only from supplied SOURCE blocks; do not reveal internal reasoning or invent facts, "
+                    "files, pages, statutes, or precedents. Use these headings: Case status; What the records "
+                    "show; Important inconsistencies; Recommended next steps; Sources. Cite every factual claim "
+                    "with the exact [filename p.number] source label. Keep current-case evidence separate from "
+                    "general procedural guidance and state when a clarifying detail is needed."
                 ),
             },
             {"role": "user", "content": f"Question: {question}\n\n{context}"},
@@ -436,17 +449,22 @@ async def _nvidia_nim_answer(
     }
     try:
         async with httpx.AsyncClient(timeout=25) as client:
-            response = await client.post(
-                f"{settings.nvidia_nim_base_url.rstrip('/')}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.nvidia_nim_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-            response.raise_for_status()
-        content = response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-        return content.strip() or None
+            for attempt in range(2):
+                response = await client.post(
+                    f"{settings.nvidia_nim_base_url.rstrip('/')}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.nvidia_nim_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+                response.raise_for_status()
+                content = response.json()["choices"][0]["message"]["content"]
+                usable = _usable_nim_content(content)
+                if usable is not None:
+                    return usable
+                LOGGER.warning("nvidia_nim_response_rejected attempt=%s", attempt + 1)
+        return None
     except httpx.HTTPStatusError as error:
         LOGGER.warning("nvidia_nim_request_failed status=%s", error.response.status_code)
         if not settings.ai_fallback_enabled:

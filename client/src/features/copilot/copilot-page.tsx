@@ -29,6 +29,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useCaseRecord } from "@/lib/hooks/use-case-record";
 import { useAppStore } from "@/stores/app-store";
+import { legalBridgeClient } from "@/lib/api/client";
 
 interface QuickPrompt {
   label: string;
@@ -181,6 +182,7 @@ export function CopilotPage() {
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
   // activeThreadId is local to this render — no cross-case leakage possible
   const [activeThreadId, setActiveThreadId] = useState<string | undefined>(
     undefined,
@@ -241,6 +243,28 @@ export function CopilotPage() {
     }
   };
 
+  const downloadReport = async (
+    format: "pdf" | "docx",
+    kind: "chronology" | "contradictions" | "summary",
+  ) => {
+    if (!activeThread) return;
+    const key = `${kind}-${format}`;
+    setDownloading(key);
+    try {
+      const blob = await legalBridgeClient.downloadCopilotReport(caseId, activeThread.id, format, kind);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `legalbridge-${kind}.${format}`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Report download failed.");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   return (
     <CasePage
       caseId={caseId}
@@ -281,6 +305,23 @@ export function CopilotPage() {
         onNew={handleNewThread}
         creating={creating}
       />
+
+      {activeThread && (
+        <Card className="mb-5">
+          <CardHeader className="pb-3"><CardTitle className="text-base">Source-grounded reports</CardTitle></CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {([
+              ["docx", "chronology", "DOCX chronology"],
+              ["pdf", "contradictions", "PDF contradictions"],
+              ["pdf", "summary", "PDF summary"],
+              ["docx", "summary", "DOCX summary"],
+            ] as const).map(([format, kind, label]) => {
+              const key = `${kind}-${format}`;
+              return <Button key={key} variant="secondary" size="sm" onClick={() => void downloadReport(format, kind)} disabled={downloading !== null}>{downloading === key ? "Preparing…" : label}</Button>;
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Messages */}
       {!activeThread ? (

@@ -401,6 +401,18 @@ export class HttpLegalBridgeClient implements LegalBridgeClient {
     );
   }
 
+  async downloadCopilotReport(
+    caseId: string,
+    threadId: string,
+    format: "pdf" | "docx",
+    kind: "chronology" | "contradictions" | "summary",
+  ): Promise<Blob> {
+    const response = await this.authenticatedResponse(
+      `/api/v1/cases/${encodeURIComponent(caseId)}/copilot/threads/${encodeURIComponent(threadId)}/reports/${format}/${kind}`,
+    );
+    return response.blob();
+  }
+
   createMotionVersion(
     caseId: string,
     motionId: string,
@@ -653,6 +665,15 @@ export class MockLegalBridgeClient implements LegalBridgeClient {
       "SERVER_ERROR",
       501,
       "mock_copilot_unavailable",
+    );
+  }
+
+  downloadCopilotReport(): Promise<Blob> {
+    throw new BackendApiError(
+      "Copilot reports require HTTP data mode.",
+      "SERVER_ERROR",
+      501,
+      "mock_copilot_report_unavailable",
     );
   }
 
