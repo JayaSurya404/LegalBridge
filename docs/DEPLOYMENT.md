@@ -25,9 +25,7 @@ STORAGE_PROVIDER=supabase
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=...
 SUPABASE_STORAGE_BUCKET=legalbridge-documents
-AI_PROVIDER=deterministic
-GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.5-flash
+AI_PROVIDER=nvidia_nim
 NVIDIA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 NVIDIA_NIM_API_KEY=backend-only-secret
 NVIDIA_NIM_MODEL=meta/llama-3.1-70b-instruct
@@ -39,8 +37,8 @@ and downloads pass through authenticated FastAPI endpoints; the frontend never
 receives a public bucket URL. `STORAGE_PROVIDER=local` remains available for
 localhost and single-instance environments.
 
-Set `AI_PROVIDER=gemini` only when a backend-only Gemini key is configured.
-The deterministic extractive provider remains fully functional without it.
+NVIDIA NIM credentials are backend-only. The deterministic extractive provider
+remains available only as a safe fallback when the configured provider fails.
 
 ## Release commands and health
 
@@ -49,6 +47,7 @@ Run these commands inside the backend container:
 ```text
 alembic upgrade head
 python -m app.scripts.bootstrap_casework_workspace
+python -m app.scripts.bootstrap_production_access
 python -m app.scripts.bootstrap_case_11_12
 ```
 
