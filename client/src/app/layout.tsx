@@ -3,7 +3,9 @@ import { AppProviders } from "@/lib/providers/app-providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("http://localhost:3000"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://legal-bridge-pi.vercel.app",
+  ),
   title: {
     default: "LegalBridge India",
     template: "%s · LegalBridge India",
