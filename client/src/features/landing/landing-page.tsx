@@ -14,7 +14,7 @@ import {
 import { motion, MotionConfig } from "motion/react";
 import Link from "next/link";
 import { LegalBridgeLogo } from "@/components/brand/legalbridge-logo";
-import { PrototypeDisclaimer, SyntheticBadge } from "@/components/shared/disclaimer";
+import { PrototypeDisclaimer } from "@/components/shared/disclaimer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -38,8 +38,8 @@ export function LandingPage() {
                 Sign in
               </Link>
               <Link href="/sign-in" className={buttonVariants({ size: "sm" })}>
-                <span className="sm:hidden">Enter Jury</span>
-                <span className="hidden sm:inline">Enter Jury Workspace</span>
+                <span className="sm:hidden">Enter</span>
+                <span className="hidden sm:inline">Enter Casework</span>
               </Link>
             </nav>
           </div>
@@ -50,7 +50,6 @@ export function LandingPage() {
             <div className="absolute inset-y-0 right-0 hidden w-[42%] bg-[linear-gradient(135deg,transparent_8%,rgba(229,151,45,.08)_8%,rgba(229,151,45,.08)_9%,transparent_9%,transparent_18%,rgba(16,35,63,.05)_18%,rgba(16,35,63,.05)_19%,transparent_19%)] lg:block" />
             <div className="relative mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.2fr_.8fr] lg:px-8 lg:py-28">
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
-                <SyntheticBadge />
                 <p className="mt-6 text-xs font-bold uppercase tracking-[0.2em] text-[var(--saffron-dark)]">
                   SDGGAIP016 · SDG 16.3 + SDG 10.3
                 </p>
@@ -62,7 +61,7 @@ export function LandingPage() {
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Link href="/sign-in" className={buttonVariants({ size: "lg" })}>
-                    Enter Jury Workspace <ArrowRight className="size-4" aria-hidden="true" />
+                    Enter Casework <ArrowRight className="size-4" aria-hidden="true" />
                   </Link>
                   <a href="#how-it-works" className={buttonVariants({ variant: "secondary", size: "lg" })}>
                     See the safety workflow

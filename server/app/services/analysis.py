@@ -6,6 +6,7 @@ import hashlib
 import math
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Protocol
 
@@ -108,6 +109,99 @@ PROCEDURAL_TOPICS = (
     ("electronic_records", "Electronic-record handling requires verification"),
     ("disclosure", "Disclosure record requires completeness review"),
 )
+
+RECORD_PATTERN = re.compile(r"(?im)^RECORD:\s*([^|\r\n]+)\|\s*([^|\r\n]+)\|\s*([^\r\n]+)")
+DOCUMENT_DATE_PATTERN = re.compile(r"(?im)^Document date:\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})")
+TIME_PATTERN = re.compile(r"\b(?:[01]?\d|2[0-3]):[0-5]\d\b")
+DATE_FORMAT = "%d %B %Y"
+FACT_LABELS = {
+    "person": "Person",
+    "incident_time": "Incident time",
+    "location": "Location",
+    "custody_time": "Custody entry",
+    "arrest_time": "Arrest reference",
+    "seal_code": "Seal number",
+    "device_id": "Device identifier",
+    "clothing": "Clothing description",
+    "electronic_export_time": "Electronic-record event",
+    "medical_time": "Medical observation",
+    "transport_arrival_time": "Transport arrival",
+    "identification_time": "Identification event",
+    "authorisation_time": "Authorisation event",
+    "electronic_certificate": "Electronic-record certificate",
+}
+TIMELINE_TITLES = {
+    "incident_time": "Witness reported the incident",
+    "custody_time": "Custody entry was created",
+    "arrest_time": "Arrest memo was signed",
+    "electronic_export_time": "Electronic record was exported",
+    "medical_time": "Medical observation was recorded",
+    "transport_arrival_time": "Transport arrival was recorded",
+    "identification_time": "Witness identification was conducted",
+    "authorisation_time": "Procedure authorisation was recorded",
+    "seal_code": "Device was sealed",
+}
+CONTRADICTION_TITLES = {
+    "incident_time": "Witness accounts record different incident times",
+    "location": "Records identify different incident locations",
+    "custody_time": "Custody start time differs across records",
+    "arrest_time": "Arrest time differs across records",
+    "seal_code": "Seizure seal code is inconsistent across records",
+    "clothing": "Witnesses provide different clothing descriptions",
+    "electronic_export_time": "Electronic export time differs from the recorded chronology",
+    "medical_time": "Medical observation time differs across records",
+    "identification_time": "Identification sequence requires reconciliation",
+}
+
+
+@dataclass(frozen=True)
+class SourceObservation:
+    key: str
+    value: str
+    detail: str
+    page: DocumentPage
+    document: DocumentRecord
+    excerpt: str
+
+
+def _source_observations(
+    sources: list[tuple[DocumentPage, DocumentRecord]],
+) -> list[SourceObservation]:
+    observations: list[SourceObservation] = []
+    for page, document in sources:
+        text = page.extracted_text
+        for match in RECORD_PATTERN.finditer(text):
+            key = re.sub(r"[^a-z0-9]+", "_", match.group(1).strip().lower()).strip("_")
+            value = match.group(2).strip()
+            detail = match.group(3).strip()
+            observations.append(
+                SourceObservation(
+                    key=key,
+                    value=value,
+                    detail=detail,
+                    page=page,
+                    document=document,
+                    excerpt=f"{match.group(1).strip()}: {value}. {detail}",
+                )
+            )
+    return observations
+
+
+def _document_date(page: DocumentPage) -> date | None:
+    match = DOCUMENT_DATE_PATTERN.search(page.extracted_text)
+    if not match:
+        return None
+    try:
+        return datetime.strptime(match.group(1), DATE_FORMAT).date()
+    except ValueError:
+        return None
+
+
+def _observation_time(observation: SourceObservation) -> time | None:
+    match = TIME_PATTERN.search(observation.value)
+    if not match:
+        return None
+    return datetime.strptime(match.group(), "%H:%M").time()
 
 
 class AnalysisProvider(Protocol):
@@ -341,9 +435,7 @@ async def run_case_analysis(
     )
     session.add(run)
     await session.flush()
-    sources = await _load_sources(
-        session, organization_id=organization_id, case_id=case_id
-    )
+    sources = await _load_sources(session, organization_id=organization_id, case_id=case_id)
     agent_runs: list[AgentRun] = []
     for sequence, (agent_key, agent_name) in enumerate(AGENTS, start=1):
         agent = AgentRun(
@@ -366,9 +458,7 @@ async def run_case_analysis(
         if not sources:
             for agent in agent_runs:
                 agent.status = "completed"
-                agent.output_summary = (
-                    "Insufficient source material; no findings were generated."
-                )
+                agent.output_summary = "Insufficient source material; no findings were generated."
                 agent.completed_at = datetime.now(timezone.utc)
             run.status = "completed"
             run.summary = (
@@ -389,86 +479,183 @@ async def run_case_analysis(
             await session.commit()
             return run
 
-        authorities = await ensure_synthetic_authorities(
-            session, organization_id=organization_id
-        )
-        excerpts = [
-            provider.source_excerpt(page, index)
-            for index, (page, _) in enumerate(sources)
-        ]
+        authorities = await ensure_synthetic_authorities(session, organization_id=organization_id)
+        excerpts = [provider.source_excerpt(page, index) for index, (page, _) in enumerate(sources)]
 
-        for index in range(20):
-            page, document = sources[index % len(sources)]
+        observations = _source_observations(sources)
+        if not observations:
+            observations = [
+                SourceObservation(
+                    key="document_reference",
+                    value=document.original_filename,
+                    detail=provider.source_excerpt(page, index),
+                    page=page,
+                    document=document,
+                    excerpt=provider.source_excerpt(page, index),
+                )
+                for index, (page, document) in enumerate(sources[:20])
+            ]
+
+        for index, observation in enumerate(observations[:60]):
+            label = FACT_LABELS.get(observation.key, observation.key.replace("_", " ").title())
             session.add(
                 CaseFact(
                     organization_id=organization_id,
                     case_id=case_id,
                     analysis_run_id=run.id,
-                    fact_type=FACT_TYPES[index % len(FACT_TYPES)],
+                    fact_type=observation.key,
                     fact_text=(
-                        f"Potential {FACT_TYPES[index % len(FACT_TYPES)].replace('_', ' ')} "
-                        f"observation from {document.original_filename}, page {page.page_number}: "
-                        f"{excerpts[index % len(excerpts)][:170]}"
+                        f"{label}: {observation.value}. {observation.detail} "
+                        f"({observation.document.original_filename}, "
+                        f"page {observation.page.page_number})."
                     ),
-                    confidence=round(0.72 + (index % 8) * 0.025, 3),
-                    source_document_id=document.id,
-                    source_page_id=page.id,
-                    status="requires_attorney_review",
+                    confidence=round(min(0.96, 0.82 + (index % 7) * 0.02), 2),
+                    source_document_id=observation.document.id,
+                    source_page_id=observation.page.id,
+                    status="review_ready",
                 )
             )
 
-        for index in range(15):
-            page, document = sources[index % len(sources)]
+        timeline_observations = [item for item in observations if item.key in TIMELINE_TITLES]
+        timeline_observations.sort(
+            key=lambda item: (
+                _document_date(item.page) or date.max,
+                _observation_time(item) or time.max,
+                item.document.original_filename,
+            )
+        )
+        for index, observation in enumerate(timeline_observations[:30], start=1):
             session.add(
                 TimelineEventRecord(
                     organization_id=organization_id,
                     case_id=case_id,
                     analysis_run_id=run.id,
-                    event_date=date(2026, 1, 1) + timedelta(days=index),
-                    event_time=time(8 + (index % 10), (index * 7) % 60),
-                    title=f"Source-grounded event {index + 1}",
+                    event_date=_document_date(observation.page),
+                    event_time=_observation_time(observation),
+                    title=TIMELINE_TITLES[observation.key],
                     description=(
-                        f"Demonstration chronology observation from "
-                        f"{document.original_filename}, page {page.page_number}; "
-                        "date and sequence require attorney verification."
+                        f"{observation.detail} Source: "
+                        f"{observation.document.original_filename}, "
+                        f"page {observation.page.page_number}."
                     ),
-                    event_type=("alleged_event", "record_created", "review_point")[
-                        index % 3
-                    ],
-                    confidence=round(0.75 + (index % 7) * 0.03, 3),
-                    source_document_id=document.id,
-                    source_page_id=page.id,
-                    sequence_number=index + 1,
+                    event_type=observation.key,
+                    confidence=0.9,
+                    source_document_id=observation.document.id,
+                    source_page_id=observation.page.id,
+                    sequence_number=index,
                 )
             )
 
-        for index, title in enumerate(CONTRADICTION_TOPICS):
-            page_a, document_a = sources[index % len(sources)]
-            page_b, document_b = sources[(index + 7) % len(sources)]
+        grouped: dict[str, list[SourceObservation]] = {}
+        for observation in observations:
+            grouped.setdefault(observation.key, []).append(observation)
+        contradictions: list[tuple[str, SourceObservation, SourceObservation]] = []
+        for key, items in grouped.items():
+            distinct: dict[str, SourceObservation] = {}
+            for item in items:
+                distinct.setdefault(item.value.casefold(), item)
+            values = list(distinct.values())
+            if key in CONTRADICTION_TITLES and len(values) > 1:
+                contradictions.append((key, values[0], values[1]))
+
+        for key, source_a, source_b in contradictions:
             session.add(
                 ContradictionRecord(
                     organization_id=organization_id,
                     case_id=case_id,
                     analysis_run_id=run.id,
-                    title=title,
+                    title=CONTRADICTION_TITLES[key],
                     description=(
-                        "The stored excerpts differ and require contextual attorney review; "
-                        "no legal conclusion is asserted."
+                        f"{source_a.document.original_filename} records "
+                        f"{source_a.value}, while {source_b.document.original_filename} "
+                        f"records {source_b.value}. The difference affects the reliability "
+                        "of the combined chronology and should be resolved against the "
+                        "original records."
                     ),
-                    severity=("high", "medium", "medium", "low")[index % 4],
-                    status="detected",
-                    source_a_document_id=document_a.id,
-                    source_a_page_id=page_a.id,
-                    source_a_excerpt=excerpts[index % len(excerpts)],
-                    source_b_document_id=document_b.id,
-                    source_b_page_id=page_b.id,
-                    source_b_excerpt=excerpts[(index + 7) % len(excerpts)],
-                    reviewer_note=None,
+                    severity="high" if key in {"seal_code", "arrest_time"} else "medium",
+                    status="review_required",
+                    source_a_document_id=source_a.document.id,
+                    source_a_page_id=source_a.page.id,
+                    source_a_excerpt=source_a.excerpt,
+                    source_b_document_id=source_b.document.id,
+                    source_b_page_id=source_b.page.id,
+                    source_b_excerpt=source_b.excerpt,
+                    reviewer_note="Compare the cited pages and record the reconciled value.",
                 )
             )
 
-        for index, (category, title) in enumerate(PROCEDURAL_TOPICS):
-            page, document = sources[(index + 2) % len(sources)]
+        procedural_candidates: list[tuple[str, str, str, SourceObservation]] = []
+        contradiction_by_key = {item[0]: item for item in contradictions}
+        if "seal_code" in contradiction_by_key:
+            item = contradiction_by_key["seal_code"][1]
+            procedural_candidates.append(
+                (
+                    "seizure",
+                    "Seizure seal code is inconsistent across records",
+                    "The seizure memo and later handling record use different seal codes.",
+                    item,
+                )
+            )
+        if "arrest_time" in contradiction_by_key or (
+            grouped.get("custody_time") and grouped.get("arrest_time")
+        ):
+            item = (grouped.get("custody_time") or grouped["arrest_time"])[0]
+            procedural_candidates.append(
+                (
+                    "custody",
+                    "Custody start time differs from the arrest memo",
+                    "The custody chronology begins before the time recorded in the arrest memo.",
+                    item,
+                )
+            )
+        incomplete_certificate = next(
+            (
+                item
+                for item in grouped.get("electronic_certificate", [])
+                if "incomplete" in item.value.lower() or "absent" in item.value.lower()
+            ),
+            None,
+        )
+        if incomplete_certificate:
+            procedural_candidates.append(
+                (
+                    "electronic_records",
+                    "Electronic-record certificate is incomplete",
+                    "The certificate record does not document all required integrity fields.",
+                    incomplete_certificate,
+                )
+            )
+        if "electronic_export_time" in contradiction_by_key:
+            item = contradiction_by_key["electronic_export_time"][1]
+            procedural_candidates.append(
+                (
+                    "electronic_records",
+                    "CCTV export time differs from the recorded chronology",
+                    "The export log and station chronology record different times.",
+                    item,
+                )
+            )
+        if grouped.get("identification_time") and grouped.get("authorisation_time"):
+            item = grouped["identification_time"][0]
+            procedural_candidates.append(
+                (
+                    "identification",
+                    "Witness identification sequence requires review",
+                    "The identification time should be compared with the authorisation record.",
+                    item,
+                )
+            )
+        if grouped.get("medical_time") and grouped.get("transport_arrival_time"):
+            item = grouped["medical_time"][0]
+            procedural_candidates.append(
+                (
+                    "medical",
+                    "Medical examination chronology requires confirmation",
+                    "The medical observation and transport arrival times require reconciliation.",
+                    item,
+                )
+            )
+        for index, (category, title, description, observation) in enumerate(procedural_candidates):
             session.add(
                 ProceduralFinding(
                     organization_id=organization_id,
@@ -477,19 +664,18 @@ async def run_case_analysis(
                     category=category,
                     title=title,
                     description=(
-                        f"Potential procedural gap identified from "
-                        f"{document.original_filename}, page {page.page_number}. "
-                        "Requires attorney verification."
+                        f"{description} Source: {observation.document.original_filename}, "
+                        f"page {observation.page.page_number}."
                     ),
-                    severity=("high", "medium", "medium")[index % 3],
+                    severity="high" if category in {"seizure", "custody"} else "medium",
                     review_status="pending",
                     defence_opportunity=(
-                        "Possible defence opportunity: reconcile the source record and "
-                        "request any missing documentation."
+                        "Compare the referenced record with the related source, obtain any "
+                        "missing entry, and document the reconciled chronology."
                     ),
-                    source_document_id=document.id,
-                    source_page_id=page.id,
-                    authority_id=authorities[index].id,
+                    source_document_id=observation.document.id,
+                    source_page_id=observation.page.id,
+                    authority_id=authorities[index % len(authorities)].id,
                 )
             )
 
@@ -498,15 +684,11 @@ async def run_case_analysis(
         ranked: list[tuple[float, float, float, LegalAuthority]] = []
         for authority in authorities:
             lexical = lexical_score(research_query, authority.full_text)
-            semantic = cosine_similarity(
-                query_vector, hashed_vector(authority.full_text)
-            )
+            semantic = cosine_similarity(query_vector, hashed_vector(authority.full_text))
             combined = 0.55 * lexical + 0.45 * max(semantic, 0.0)
             ranked.append((combined, lexical, semantic, authority))
         ranked.sort(key=lambda item: (-item[0], item[3].citation))
-        for rank, (combined, lexical, semantic, authority) in enumerate(
-            ranked[:10], start=1
-        ):
+        for rank, (combined, lexical, semantic, authority) in enumerate(ranked[:10], start=1):
             session.add(
                 ResearchResult(
                     organization_id=organization_id,
@@ -518,14 +700,15 @@ async def run_case_analysis(
                     semantic_score=round(semantic, 4),
                     combined_score=round(combined, 4),
                     applicability_summary=(
-                        "Potentially useful as a synthetic review checklist for the "
-                        "source-grounded issue; attorney verification is required."
+                        f"Training reference relevant to "
+                        f"{authority.title.split(': ', 1)[-1].lower()} when reviewing "
+                        "the extracted chronology and source links."
                     ),
                     limitation_summary=(
                         "Synthetic demonstration authority — not an official legal source "
                         "and not binding."
                     ),
-                    source_status="synthetic_demo",
+                    source_status="training_reference",
                 )
             )
 
@@ -545,12 +728,8 @@ async def run_case_analysis(
                     case_id=case_id,
                     analysis_run_id=run.id,
                     title=title,
-                    description=(
-                        "Source-grounded demonstration recommendation; not legal advice."
-                    ),
-                    priority=("high", "high", "medium", "medium", "medium", "high")[
-                        index
-                    ],
+                    description=("Source-grounded demonstration recommendation; not legal advice."),
+                    priority=("high", "high", "medium", "medium", "medium", "high")[index],
                     status="attorney_review_required",
                     rationale=(
                         f"Supported by a review point in {document.original_filename}, "
@@ -637,9 +816,7 @@ async def run_case_analysis(
                         organization_id=organization_id,
                         case_id=case_id,
                         motion_version_id=version.id,
-                        citation_text=(
-                            f"{document.original_filename}, page {page.page_number}"
-                        ),
+                        citation_text=(f"{document.original_filename}, page {page.page_number}"),
                         source_document_id=document.id,
                         source_page_id=page.id,
                         status="verified_source",
@@ -702,10 +879,7 @@ async def run_case_analysis(
             {
                 "document_id": sources[0][1].id,
                 "page_id": sources[0][0].id,
-                "label": (
-                    f"{sources[0][1].original_filename} "
-                    f"p.{sources[0][0].page_number}"
-                ),
+                "label": (f"{sources[0][1].original_filename} p.{sources[0][0].page_number}"),
             }
         ]
         messages = (

@@ -14,11 +14,9 @@ import Link from "next/link";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { PageHeader } from "@/components/shared/page-header";
 import { MetricCard } from "@/components/shared/metric-card";
-import { PrototypeDisclaimer } from "@/components/shared/disclaimer";
 import { StatusBadge } from "@/components/shared/status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
-import { BACKEND_DEMO_CASE_NUMBER } from "@/lib/api/mappers";
 import { getMotionGateStatus } from "@/lib/motion-gate";
 import { useAppStore } from "@/stores/app-store";
 import { format } from "date-fns";
@@ -27,21 +25,22 @@ export function DashboardPage() {
   const cases = useAppStore((state) => state.cases);
   const auditEvents = useAppStore((state) => state.auditEvents);
   const dashboardSummary = useAppStore((state) => state.dashboardSummary);
+  const analysisSummaries = useAppStore((state) => state.analysisSummaries);
   const demo =
-    cases.find((record) => record.reference === BACKEND_DEMO_CASE_NUMBER) ??
-    cases[0];
-  const completed = demo?.workflow.nodes.filter((node) => node.status === "completed").length ?? 0;
-  const citations = demo?.citations.length ?? 0;
+    cases.find((record) => record.workflow.status === "completed") ?? cases[0];
+  const selectedSummary = demo ? analysisSummaries[demo.id] : undefined;
+  const analysisCompleted = selectedSummary?.analysis_run?.status === "completed";
   const ethicsRejections = demo?.ethicsArguments.filter((argument) => argument.status === "rejected").length ?? 0;
   const gate = demo ? getMotionGateStatus(demo) : null;
-  const verified = gate?.metrics.citationRecordsVerified ?? 0;
-  const factCount = demo?.timeline.length ? 24 : 0;
+  const factCount = selectedSummary?.facts.length ?? 0;
   const chartData = [
     { name: "Facts", value: factCount },
-    { name: "Timeline", value: demo?.timeline.length ?? 0 },
-    { name: "Conflicts", value: demo?.contradictions.length ?? 0 },
-    { name: "Concerns", value: demo?.findings.length ?? 0 },
-    { name: "Authorities", value: demo?.authorities.length ?? 0 },
+    { name: "Timeline", value: selectedSummary?.timeline.length ?? 0 },
+    { name: "Contradictions", value: selectedSummary?.contradictions.length ?? 0 },
+    { name: "Procedural", value: selectedSummary?.procedural_findings.length ?? 0 },
+    { name: "Authorities", value: selectedSummary?.research.length ?? 0 },
+    { name: "Strategies", value: selectedSummary?.strategies.length ?? 0 },
+    { name: "Ethics", value: selectedSummary?.ethics_findings.length ?? 0 },
   ];
   const storedDocuments = cases.flatMap((record) =>
     record.documents.filter((document) => document.origin === "backend"),
@@ -63,21 +62,20 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Persistent development workspace"
+        eyebrow="LegalBridge Casework"
         title="Good afternoon, counsel."
-        description="Manage persisted cases, private originals, extracted source pages, and review-gated analysis from the synthetic legal-aid dataset."
+        description="Manage realistic fictional case records, private originals, extracted sources, analysis, and attorney review."
         actions={
           <Link href="/cases/new" className={buttonVariants()}>
             New case
           </Link>
         }
-        synthetic
       />
-      <PrototypeDisclaimer className="mb-6" compact />
       <section aria-label="Workspace metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Active cases" value={dashboardSummary?.active_cases ?? cases.filter((record) => record.status === "active").length} note={`${dashboardSummary?.total_cases ?? cases.length} backend total`} icon={BriefcaseBusiness} />
-        <MetricCard label="Workflow progress" value={`${completed}/15`} note={demo?.workflow.status ?? "No case"} icon={Activity} />
-        <MetricCard label="Citations verified" value={`${verified}/${citations}`} note="Synthetic closed records" icon={ShieldCheck} />
+        <MetricCard label="Cases" value={dashboardSummary?.total_cases ?? cases.length} note={`${dashboardSummary?.closed_cases ?? 0} completed · ${dashboardSummary?.review_cases ?? 0} in review · ${dashboardSummary?.active_cases ?? 0} pending`} icon={BriefcaseBusiness} />
+        <MetricCard label="Completed analyses" value={dashboardSummary?.completed_analyses ?? 0} note="PostgreSQL workflow records" icon={Activity} />
+        <MetricCard label="Awaiting review" value={dashboardSummary?.motions_awaiting_review ?? 0} note="Submitted motions" icon={ShieldCheck} />
+        <MetricCard label="Approved motions" value={dashboardSummary?.approved_motions ?? 0} note="Export-eligible versions" icon={FileCheck2} />
         <MetricCard
           label="Export status"
           value={gate?.exportUnlocked ? "Unlocked" : "Locked"}
@@ -112,7 +110,7 @@ export function DashboardPage() {
             <Scale className="size-5 text-[var(--saffron-dark)]" aria-hidden="true" />
           </CardHeader>
           <CardContent>
-            <div className="h-72 w-full" aria-hidden="true">
+            {analysisCompleted ? <div className="h-72 w-full" aria-hidden="true">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 12, right: 8, bottom: 0, left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dde2e7" />
@@ -122,10 +120,13 @@ export function DashboardPage() {
                   <Bar dataKey="value" fill="#183657" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            </div>
-            <p className="mt-3 text-xs leading-5 text-[var(--slate)]">
-              Text summary: {factCount} extracted demonstration facts, {demo?.timeline.length ?? 0} timeline events, {demo?.contradictions.length ?? 0} contradictions, {demo?.findings.length ?? 0} potential concerns, and {demo?.authorities.length ?? 0} closed synthetic authorities. Empty backend cases never inherit these fixtures.
-            </p>
+            </div> : <div className="rounded-xl border border-[var(--border)] p-6">
+              <p className="font-semibold text-[var(--navy)]">Analysis has not been completed for this case.</p>
+              {demo && <Link href={`/cases/${demo.id}/workflow`} className={`${buttonVariants()} mt-4`}>Run analysis</Link>}
+            </div>}
+            {analysisCompleted && <p className="mt-3 text-xs leading-5 text-[var(--slate)]">
+              Text summary: {factCount} facts, {selectedSummary?.timeline.length ?? 0} timeline events, {selectedSummary?.contradictions.length ?? 0} contradictions, {selectedSummary?.procedural_findings.length ?? 0} procedural findings, {selectedSummary?.research.length ?? 0} authorities, {selectedSummary?.strategies.length ?? 0} strategies, and {selectedSummary?.ethics_findings.length ?? 0} ethics findings.
+            </p>}
           </CardContent>
         </Card>
 
@@ -148,7 +149,7 @@ export function DashboardPage() {
             </div>
             {demo && (
               <Link href={`/cases/${demo.id}`} className={`${buttonVariants()} w-full`}>
-                Open demonstration case <ArrowRight className="size-4" aria-hidden="true" />
+                Open case <ArrowRight className="size-4" aria-hidden="true" />
               </Link>
             )}
           </CardContent>

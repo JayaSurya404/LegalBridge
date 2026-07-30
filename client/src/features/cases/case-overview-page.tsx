@@ -69,7 +69,7 @@ export function CaseOverviewPage() {
       ? { label: "Run deterministic workflow", href: `/cases/${caseId}/workflow` }
       : record.ethicsArguments.length === 0
         ? {
-            label: "Open the preloaded analysis demo",
+            label: "Open the completed case analysis",
             href: demoCaseId ? `/cases/${demoCaseId}` : "/cases",
           }
       : !rejectionApplied
@@ -104,8 +104,8 @@ export function CaseOverviewPage() {
           <CardContent>
             <dl className="divide-y divide-[var(--border)] text-sm">
               {[
-                ["Synthetic client", record.clientName],
-                ["Synthetic advocate", record.advocateName],
+                ["Case subject", record.clientName],
+                ["Assigned advocate", record.advocateName],
                 ["Review forum", record.court],
                 ["Jurisdiction", record.jurisdiction],
                 ["Case status", record.status],

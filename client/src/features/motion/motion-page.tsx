@@ -210,15 +210,6 @@ export function MotionPage() {
         </>
       }
     >
-      <Card className="mb-5 border-red-200 bg-red-50">
-        <CardContent className="p-4 text-sm leading-6 text-red-950">
-          Demonstration draft — attorney review
-          required — not filed with any court.
-          Synthetic legal-aid dataset; not legal
-          advice; no automatic court filing.
-        </CardContent>
-      </Card>
-
       {!motion ? (
         <Card>
           <CardContent className="p-6 text-sm text-[var(--slate)]">
@@ -249,11 +240,16 @@ export function MotionPage() {
                   }
                 />
               </div>
+              {motion.status === "draft" && motion.current_version > 1 && (
+                <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-950">
+                  This version has changed and must be reviewed again.
+                </p>
+              )}
             </CardHeader>
 
             <CardContent className="p-0">
               <Textarea
-                aria-label="Editable demonstration motion"
+                aria-label="Editable source-grounded motion"
                 value={body}
                 onChange={(event) =>
                   updateBody(event.target.value)

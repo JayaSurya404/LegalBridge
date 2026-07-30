@@ -66,12 +66,6 @@ export function WorkflowPage() {
         </Button>
       }
     >
-      <Card className="mb-6 border-blue-200 bg-blue-50">
-        <CardContent className="p-5 text-sm leading-6 text-blue-950">
-          Synthetic legal-aid dataset · Not legal advice · Attorney verification
-          required · No automatic court filing.
-        </CardContent>
-      </Card>
       <Card className="mb-6">
         <CardContent className="p-5">
           <div className="flex items-center justify-between gap-4">

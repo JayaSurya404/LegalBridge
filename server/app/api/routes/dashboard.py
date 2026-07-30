@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import Principal, get_current_principal
 from app.db.session import get_session
+from app.models.analysis import AnalysisRun, MotionDraft
 from app.models.audit import AuditEvent
 from app.models.case import LegalCase
 from app.models.document import DocumentRecord
@@ -48,6 +49,24 @@ async def dashboard_summary(
     total_audit_events = await session.scalar(
         select(func.count(AuditEvent.id)).where(AuditEvent.organization_id == organization_id)
     )
+    completed_analyses = await session.scalar(
+        select(func.count(func.distinct(AnalysisRun.case_id))).where(
+            AnalysisRun.organization_id == organization_id,
+            AnalysisRun.status == "completed",
+        )
+    )
+    motions_awaiting_review = await session.scalar(
+        select(func.count(MotionDraft.id)).where(
+            MotionDraft.organization_id == organization_id,
+            MotionDraft.status == "submitted_for_review",
+        )
+    )
+    approved_motions = await session.scalar(
+        select(func.count(MotionDraft.id)).where(
+            MotionDraft.organization_id == organization_id,
+            MotionDraft.status.in_(("approved", "exported")),
+        )
+    )
     recent_audit_events = list(
         (
             await session.scalars(
@@ -71,6 +90,9 @@ async def dashboard_summary(
         ocr_required_documents=document_counts.get("ocr_required", 0),
         failed_documents=document_counts.get("failed", 0),
         extracted_source_pages=extracted_source_pages or 0,
+        completed_analyses=completed_analyses or 0,
+        motions_awaiting_review=motions_awaiting_review or 0,
+        approved_motions=approved_motions or 0,
         total_audit_events=total_audit_events or 0,
         recent_audit_events=recent_audit_events,
     )

@@ -61,9 +61,7 @@ async def _get_motion(
     return motion
 
 
-async def _latest_version(
-    session: AsyncSession, motion_id: str
-) -> MotionVersion:
+async def _latest_version(session: AsyncSession, motion_id: str) -> MotionVersion:
     version = (
         await session.scalars(
             select(MotionVersion)
@@ -87,9 +85,7 @@ async def list_motions(
     principal: Annotated[Principal, Depends(get_current_principal)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict[str, Any]]:
-    await get_organization_case(
-        session, organization_id=principal.organization.id, case_id=case_id
-    )
+    await get_organization_case(session, organization_id=principal.organization.id, case_id=case_id)
     motions = (
         await session.scalars(
             select(MotionDraft)
@@ -110,9 +106,7 @@ async def create_motion(
     principal: Annotated[Principal, Depends(motion_editor)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, Any]:
-    await get_organization_case(
-        session, organization_id=principal.organization.id, case_id=case_id
-    )
+    await get_organization_case(session, organization_id=principal.organization.id, case_id=case_id)
     run = await latest_analysis_run(
         session, organization_id=principal.organization.id, case_id=case_id
     )
@@ -212,6 +206,7 @@ async def create_motion_version(
         created_by_user_id=principal.user.id,
     )
     session.add(version)
+    await session.flush()
     motion.current_version = version_number
     motion.status = "draft"
     add_audit_event(
@@ -301,9 +296,7 @@ async def check_motion_citations(
                     citation_text=authority.citation,
                     authority_id=authority.id,
                     status="synthetic_demo",
-                    message=(
-                        "Synthetic demonstration authority — not an official legal source."
-                    ),
+                    message=("Synthetic demonstration authority — not an official legal source."),
                 )
             )
         version.citation_check_status = "passed_synthetic_sources"
@@ -338,9 +331,7 @@ async def check_motion_ethics(
     version = await _latest_version(session, motion.id)
     required_phrases = ("attorney review", "not filed", "synthetic")
     missing = [phrase for phrase in required_phrases if phrase not in version.rendered_text.lower()]
-    version.ethics_check_status = (
-        "requires_revision" if missing else "passed_with_attorney_review"
-    )
+    version.ethics_check_status = "requires_revision" if missing else "passed_with_attorney_review"
     add_audit_event(
         session,
         organization_id=principal.organization.id,
@@ -431,8 +422,7 @@ async def review_motion(
         actor_user_id=principal.user.id,
         event_type="attorney_review",
         message=(
-            "Internal demonstration review recorded — not a court signature "
-            "and not a court filing."
+            "Internal demonstration review recorded — not a court signature and not a court filing."
         ),
         entity_type="attorney_review",
         entity_id=review.id,
@@ -516,9 +506,7 @@ async def _export(
         media_type = "application/pdf"
     else:
         content = _docx_bytes(motion.title, version.rendered_text)
-        media_type = (
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
+        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     motion.status = "exported"
     add_audit_event(
         session,

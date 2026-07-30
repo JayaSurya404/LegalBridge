@@ -24,7 +24,6 @@ export function CasePage({
         title={title}
         description={description}
         actions={actions}
-        synthetic
       />
       <CaseNavigation caseId={caseId} />
       {children}

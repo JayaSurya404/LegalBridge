@@ -230,6 +230,48 @@ def test_invalid_review_pin_is_controlled(context: ApiContext) -> None:
     assert response.json()["error"]["code"] == "invalid_review_pin"
 
 
+def test_new_motion_version_flushes_id_and_invalidates_approval(
+    context: ApiContext,
+) -> None:
+    ids = _seed_platform(context)
+    headers = context.access_headers(context.admin_email)
+    approved = context.client.post(
+        f"/api/v1/cases/{ids.case_id}/motions/{ids.motion_id}/review",
+        headers=headers,
+        json={
+            "decision": "approved",
+            "comments": "Version one reviewed.",
+            "review_pin": "2026",
+        },
+    )
+    assert approved.status_code == 200
+
+    response = context.client.post(
+        f"/api/v1/cases/{ids.case_id}/motions/{ids.motion_id}/versions",
+        headers=headers,
+        json={
+            "content_json": {
+                "Factual background": "Revised source-linked factual background."
+            },
+            "rendered_text": "Factual background\nRevised source-linked factual background.",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "draft"
+    assert payload["current_version"] == 2
+    latest = payload["versions"][-1]
+    assert latest["id"]
+    assert latest["citation_check_status"] == "pending"
+    assert latest["ethics_check_status"] == "pending"
+    export = context.client.get(
+        f"/api/v1/cases/{ids.case_id}/motions/{ids.motion_id}/export/pdf",
+        headers=headers,
+    )
+    assert export.status_code == 409
+
+
 def test_copilot_persists_serializable_user_and_assistant_messages(
     context: ApiContext,
 ) -> None:

@@ -98,9 +98,12 @@ export function ReviewPage() {
                     </span>
                   </div>
                   <p className="mt-3 text-sm leading-6">{review.comments}</p>
-                  <p className="mt-2 text-xs text-[var(--slate)]">
-                    PIN verified by backend: {review.review_pin_verified ? "Yes" : "No"}
-                  </p>
+                  <dl className="mt-3 grid gap-2 text-xs text-[var(--slate)] sm:grid-cols-2">
+                    <div><dt className="font-semibold">Motion version</dt><dd>v{motion.current_version}</dd></div>
+                    <div><dt className="font-semibold">Reviewer</dt><dd>{review.reviewer_name}</dd></div>
+                    <div><dt className="font-semibold">Reviewer role</dt><dd className="capitalize">{review.reviewer_role}</dd></div>
+                    <div><dt className="font-semibold">PIN verified</dt><dd>{review.review_pin_verified ? "Yes" : "No"}</dd></div>
+                  </dl>
                 </article>
               ))}
             </CardContent>

@@ -511,6 +511,9 @@ export class MockLegalBridgeClient implements LegalBridgeClient {
       ocr_required_documents: 0,
       failed_documents: 0,
       extracted_source_pages: 0,
+      completed_analyses: 0,
+      motions_awaiting_review: 0,
+      approved_motions: 0,
       total_audit_events: 0,
       recent_audit_events: [],
     };

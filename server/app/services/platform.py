@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, time
 from typing import Any
 
@@ -28,6 +29,8 @@ from app.models.analysis import (
 )
 from app.models.document import DocumentRecord
 from app.models.document_page import DocumentPage
+from app.models.user import User
+from app.services.analysis import cosine_similarity, hashed_vector, lexical_score
 
 
 def serialize_model(model: object) -> dict[str, Any]:
@@ -108,11 +111,30 @@ async def motion_payload(
             )
         ).all()
     )
+    reviewer_ids = {review.reviewer_user_id for review in reviews}
+    reviewers = (
+        {
+            user.id: user
+            for user in (
+                await session.scalars(select(User).where(User.id.in_(reviewer_ids)))
+            ).all()
+        }
+        if reviewer_ids
+        else {}
+    )
     return {
         **serialize_model(motion),
         "versions": [serialize_model(item) for item in versions],
         "citation_checks": [serialize_model(item) for item in checks],
-        "reviews": [serialize_model(item) for item in reviews],
+        "reviews": [
+            {
+                **serialize_model(item),
+                "reviewer_name": reviewers[item.reviewer_user_id].full_name,
+                "reviewer_role": reviewers[item.reviewer_user_id].role.value,
+            }
+            for item in reviews
+            if item.reviewer_user_id in reviewers
+        ],
     }
 
 
@@ -263,69 +285,121 @@ async def copilot_answer(
     case_id: str,
     question: str,
 ) -> tuple[str, list[dict[str, str]]]:
-    summary = await analysis_summary(
-        session, organization_id=organization_id, case_id=case_id
-    )
-    page_row = (
-        await session.execute(
-            select(DocumentPage, DocumentRecord)
-            .join(DocumentRecord, DocumentRecord.id == DocumentPage.document_id)
-            .where(
-                DocumentPage.organization_id == organization_id,
-                DocumentPage.case_id == case_id,
+    rows = list(
+        (
+            await session.execute(
+                select(DocumentPage, DocumentRecord)
+                .join(DocumentRecord, DocumentRecord.id == DocumentPage.document_id)
+                .where(
+                    DocumentPage.organization_id == organization_id,
+                    DocumentPage.case_id == case_id,
+                    DocumentRecord.extraction_status == "processed",
+                )
+                .order_by(DocumentRecord.original_filename, DocumentPage.page_number)
             )
-            .order_by(DocumentPage.created_at)
-            .limit(1)
+        ).all()
+    )
+    if not rows:
+        return (
+            "I could not find support for that statement in the uploaded case records.",
+            [],
         )
-    ).first()
-    references: list[dict[str, str]] = []
-    if page_row:
-        page, document = page_row
-        references.append(
-            {
-                "document_id": document.id,
-                "page_id": page.id,
-                "label": f"{document.original_filename} p.{page.page_number}",
-            }
+
+    lowered = question.casefold()
+    mentioned = {
+        document.original_filename.casefold()
+        for _, document in rows
+        if document.original_filename.casefold() in lowered
+        or document.original_filename.rsplit(".", 1)[0].casefold() in lowered
+    }
+    candidates = [
+        (page, document)
+        for page, document in rows
+        if not mentioned or document.original_filename.casefold() in mentioned
+    ]
+    query_vector = hashed_vector(question)
+    scored = [
+        (
+            0.65 * lexical_score(question, page.extracted_text)
+            + 0.35
+            * max(cosine_similarity(query_vector, hashed_vector(page.extracted_text)), 0),
+            page,
+            document,
         )
-    if summary["analysis_run"] is None:
-        return "The available case sources do not establish this.", references
-    lowered = question.lower()
-    counts = summary["counts"]
-    if "timeline" in lowered:
-        answer = (
-            f"The persisted analysis contains {counts['timeline']} timeline events. "
-            "Each is a potential source-grounded observation requiring attorney verification."
+        for page, document in candidates
+    ]
+    scored.sort(key=lambda item: (-item[0], item[2].original_filename, item[1].page_number))
+    broad_question = any(
+        phrase in lowered
+        for phrase in ("entire case", "all documents", "chronology", "compare")
+    )
+    selected = scored[:8 if broad_question else 5]
+    if not selected or (
+        selected[0][0] <= 0
+        and not any(word in lowered for word in ("summar", "case", "review"))
+    ):
+        return (
+            "I could not find support for that statement in the uploaded case records.",
+            [],
         )
-    elif "contradiction" in lowered:
-        answer = (
-            f"The analysis records {counts['contradictions']} source comparisons. "
-            "The strongest items concern timing, sequence, location, and record wording; "
-            "they are not legal conclusions."
+
+    references = [
+        {
+            "document_id": document.id,
+            "page_id": page.id,
+            "label": f"{document.original_filename} p.{page.page_number}",
+            "filename": document.original_filename,
+            "page_number": str(page.page_number),
+        }
+        for _, page, document in selected
+    ]
+    record_lines: list[tuple[str, str, str, DocumentPage, DocumentRecord]] = []
+    pattern = re.compile(
+        r"(?im)^RECORD:\s*([^|\r\n]+)\|\s*([^|\r\n]+)\|\s*([^\r\n]+)"
+    )
+    for _, page, document in selected:
+        for match in pattern.finditer(page.extracted_text):
+            record_lines.append(
+                (
+                    match.group(1).strip(),
+                    match.group(2).strip(),
+                    match.group(3).strip(),
+                    page,
+                    document,
+                )
+            )
+
+    relevant_terms = {
+        token
+        for token in re.findall(r"[a-z0-9-]+", lowered)
+        if len(token) > 3
+    }
+    matching = [
+        item
+        for item in record_lines
+        if relevant_terms
+        & set(re.findall(r"[a-z0-9-]+", " ".join(item[:3]).casefold()))
+    ]
+    chosen = matching[:8] or record_lines[:8]
+    if not chosen:
+        excerpts = []
+        for _, page, document in selected[:4]:
+            text = " ".join(page.extracted_text.split())
+            excerpts.append(
+                f"{text[:260]} [{document.original_filename} p.{page.page_number}]"
+            )
+        return " ".join(excerpts), references
+
+    lead = (
+        "The retrieved case records show the following source-linked points:"
+        if broad_question or "summar" in lowered
+        else "The records support these points:"
+    )
+    bullets = [
+        (
+            f"- {key.replace('_', ' ').title()}: {value}. {detail} "
+            f"[{document.original_filename} p.{page.page_number}]"
         )
-    elif "procedural" in lowered or "gap" in lowered:
-        answer = (
-            f"There are {counts['procedural_findings']} potential procedural gaps. "
-            "Each requires attorney verification and may present a possible defence opportunity."
-        )
-    elif "motion" in lowered or "draft" in lowered:
-        answer = (
-            "The demonstration motion organizes source-grounded observations, synthetic "
-            "authorities, limitations, and requested attorney actions. It is not filing-ready "
-            "and cannot be filed automatically."
-        )
-    elif "next" in lowered or "unresolved" in lowered or "review" in lowered:
-        answer = (
-            "Review source differences first, confirm the chronology and document handling, "
-            "then validate every motion citation and ethics warning."
-        )
-    elif "summar" in lowered or "case" in lowered:
-        answer = (
-            f"The completed deterministic analysis contains {counts['facts']} facts, "
-            f"{counts['timeline']} timeline events, {counts['contradictions']} contradictions, "
-            f"and {counts['procedural_findings']} procedural review points. Synthetic "
-            "demonstration data; not legal advice; attorney verification required."
-        )
-    else:
-        answer = "The available case sources do not establish this."
-    return answer, references
+        for key, value, detail, page, document in chosen
+    ]
+    return f"{lead}\n" + "\n".join(bullets), references

@@ -9,10 +9,15 @@ import tempfile
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
+import httpx
 from fastapi import UploadFile
 from starlette.concurrency import run_in_threadpool
+
+if TYPE_CHECKING:
+    from app.core.config import Settings
 
 ALLOWED_CONTENT_TYPES = {
     ".pdf": "application/pdf",
@@ -386,3 +391,118 @@ class StorageService:
                 "binary_text_file",
                 "The TXT selection contains too many binary control bytes.",
             )
+
+
+class SupabaseStorageService(StorageService):
+    """Private Supabase Storage implementation with a short-lived local cache."""
+
+    def __init__(
+        self,
+        root: Path,
+        max_upload_bytes: int,
+        *,
+        supabase_url: str,
+        service_role_key: str,
+        bucket: str,
+    ) -> None:
+        super().__init__(root, max_upload_bytes)
+        self.object_url = f"{supabase_url.rstrip('/')}/storage/v1/object"
+        self.bucket = bucket
+        self.headers = {
+            "apikey": service_role_key,
+            "authorization": f"Bearer {service_role_key}",
+        }
+        self.cache_root = self.root / ".remote-cache"
+
+    def ensure_ready(self) -> None:
+        super().ensure_ready()
+        self.cache_root.mkdir(parents=True, exist_ok=True)
+
+    def is_ready(self) -> bool:
+        try:
+            self.ensure_ready()
+            response = httpx.get(
+                f"{self.object_url}/list/{self.bucket}",
+                headers=self.headers,
+                params={"limit": 1},
+                timeout=10,
+            )
+            return response.status_code < 500
+        except httpx.HTTPError:
+            return False
+
+    def finalize(
+        self,
+        staged: StagedUpload,
+        *,
+        organization_id: str,
+        case_id: str,
+        document_id: str,
+    ) -> str:
+        for component in (organization_id, case_id, document_id):
+            if not SAFE_COMPONENT.fullmatch(component):
+                raise ValueError("Storage identifiers must be opaque safe components.")
+        key = f"{organization_id}/{case_id}/{document_id}/original{staged.extension}"
+        response = httpx.post(
+            f"{self.object_url}/{self.bucket}/{key}",
+            headers={
+                **self.headers,
+                "content-type": staged.content_type,
+                "x-upsert": "false",
+            },
+            content=staged.temporary_path.read_bytes(),
+            timeout=60,
+        )
+        response.raise_for_status()
+        return key
+
+    def binary_exists(self, storage_key: str | None) -> bool:
+        if not storage_key:
+            return False
+        response = httpx.head(
+            f"{self.object_url}/{self.bucket}/{storage_key}",
+            headers=self.headers,
+            timeout=10,
+        )
+        return response.status_code == 200
+
+    def path_for_key(self, storage_key: str) -> Path:
+        self.ensure_ready()
+        suffix = Path(storage_key).suffix
+        cache_path = self.cache_root / f"{hashlib.sha256(storage_key.encode()).hexdigest()}{suffix}"
+        if not cache_path.is_file():
+            response = httpx.get(
+                f"{self.object_url}/{self.bucket}/{storage_key}",
+                headers=self.headers,
+                timeout=60,
+            )
+            response.raise_for_status()
+            cache_path.write_bytes(response.content)
+        return cache_path
+
+    def delete_key(self, storage_key: str | None) -> None:
+        if not storage_key:
+            return
+        response = httpx.delete(
+            f"{self.object_url}/{self.bucket}",
+            headers={**self.headers, "content-type": "application/json"},
+            json={"prefixes": [storage_key]},
+            timeout=30,
+        )
+        response.raise_for_status()
+
+
+def create_storage_service(settings: Settings) -> StorageService:
+    """Select the configured private storage provider."""
+
+    if settings.storage_provider == "supabase":
+        assert settings.supabase_url is not None
+        assert settings.supabase_service_role_key is not None
+        return SupabaseStorageService(
+            settings.storage_root,
+            settings.max_upload_bytes,
+            supabase_url=settings.supabase_url,
+            service_role_key=settings.supabase_service_role_key,
+            bucket=settings.supabase_storage_bucket,
+        )
+    return StorageService(settings.storage_root, settings.max_upload_bytes)

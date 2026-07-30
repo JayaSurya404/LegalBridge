@@ -149,6 +149,9 @@ export interface BackendDashboardSummary {
   ocr_required_documents: number;
   failed_documents: number;
   extracted_source_pages: number;
+  completed_analyses: number;
+  motions_awaiting_review: number;
+  approved_motions: number;
   total_audit_events: number;
   recent_audit_events: BackendAuditEvent[];
 }
@@ -299,6 +302,8 @@ export interface BackendMotionVersion {
 export interface BackendAttorneyReview {
   id: string;
   reviewer_user_id: string;
+  reviewer_name: string;
+  reviewer_role: "admin" | "attorney" | "reviewer";
   decision: string;
   comments: string;
   review_pin_verified: boolean;

@@ -15,7 +15,7 @@ import type {
   NewCaseInput,
 } from "@/lib/types/domain";
 
-export const BACKEND_DEMO_CASE_NUMBER = "LB-MAIN-2026-001";
+export const BACKEND_DEMO_CASE_NUMBER = "LB-CASE-2026-001";
 
 export function mapBackendUser(user: BackendUser): AuthenticatedUser {
   return {
@@ -39,7 +39,7 @@ function emptyAnalysisCase(backend: BackendCase): CaseRecord {
     allegationType: backend.allegation_type ?? "Not specified",
     court: backend.court_name ?? "Not specified",
     jurisdiction: backend.jurisdiction ?? "Not specified",
-    clientName: "Synthetic demonstration client",
+    clientName: "Fictional case subject",
     advocateName: "Assigned from the authenticated workspace",
     status: backend.status,
     synthetic: true,
@@ -123,16 +123,19 @@ export function mergeBackendDocuments(
   return backendDocuments.map(mapBackendDocument);
 }
 
-const sourceLabel = (documentId: string | null, pageId: string | null) =>
-  documentId && pageId
-    ? `Stored document ${documentId.slice(0, 8)} · page ${pageId.slice(0, 8)}`
-    : "Source reference unavailable";
-
 export function applyBackendAnalysis(
   record: CaseRecord,
   summary: BackendAnalysisSummary,
 ): CaseRecord {
   if (!summary.analysis_run) return record;
+  const sourceLabel = (documentId: string | null, pageId: string | null) => {
+    const document = record.documents.find((item) => item.id === documentId);
+    return document
+      ? `${document.name} · extracted source`
+      : pageId
+        ? "Extracted source page"
+        : "Source reference unavailable";
+  };
   const completed = summary.agents.filter(
     (agent) => agent.status === "completed",
   ).length;

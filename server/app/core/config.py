@@ -86,6 +86,28 @@ class Settings(BaseSettings):
     jwt_algorithm: Literal["HS256"] = "HS256"
     jwt_secret: str = Field(default=DEVELOPMENT_JWT_SECRET, min_length=32)
     storage_root: Path = SERVER_ROOT / "data" / "uploads"
+    storage_provider: Literal["local", "supabase"] = Field(
+        default="local",
+        validation_alias=AliasChoices("STORAGE_PROVIDER", "LEGALBRIDGE_STORAGE_PROVIDER"),
+    )
+    supabase_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SUPABASE_URL", "LEGALBRIDGE_SUPABASE_URL"),
+    )
+    supabase_service_role_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "SUPABASE_SERVICE_ROLE_KEY",
+            "LEGALBRIDGE_SUPABASE_SERVICE_ROLE_KEY",
+        ),
+    )
+    supabase_storage_bucket: str = Field(
+        default="legalbridge-documents",
+        validation_alias=AliasChoices(
+            "SUPABASE_STORAGE_BUCKET",
+            "LEGALBRIDGE_SUPABASE_STORAGE_BUCKET",
+        ),
+    )
     max_upload_bytes: int = Field(default=50 * 1024 * 1024, ge=1)
     ocr_enabled: bool = False
     tesseract_command: str | None = None
@@ -93,6 +115,18 @@ class Settings(BaseSettings):
     extraction_page_text_limit: int = Field(default=200_000, ge=1_000)
     extraction_max_pages: int = Field(default=1_000, ge=1, le=10_000)
     analysis_provider: Literal["deterministic", "future_ai"] = "deterministic"
+    ai_provider: Literal["deterministic", "gemini"] = Field(
+        default="deterministic",
+        validation_alias=AliasChoices("AI_PROVIDER", "LEGALBRIDGE_AI_PROVIDER"),
+    )
+    gemini_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GEMINI_API_KEY", "LEGALBRIDGE_GEMINI_API_KEY"),
+    )
+    gemini_model: str = Field(
+        default="gemini-2.5-flash",
+        validation_alias=AliasChoices("GEMINI_MODEL", "LEGALBRIDGE_GEMINI_MODEL"),
+    )
     review_pin: str = Field(default="2026", min_length=4)
 
     @field_validator("api_v1_prefix")
@@ -144,6 +178,14 @@ class Settings(BaseSettings):
                 raise ValueError("PostgreSQL connections require DATABASE_SSL=require.")
         elif self.database_ssl != "disable":
             raise ValueError("SQLite connections require DATABASE_SSL=disable.")
+        if self.storage_provider == "supabase" and (
+            not self.supabase_url or not self.supabase_service_role_key
+        ):
+            raise ValueError(
+                "Supabase storage requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
+            )
+        if self.ai_provider == "gemini" and not self.gemini_api_key:
+            raise ValueError("Gemini requires GEMINI_API_KEY.")
         return self
 
 

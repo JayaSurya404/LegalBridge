@@ -16,5 +16,8 @@ class DashboardSummaryResponse(ORMResponse):
     ocr_required_documents: int
     failed_documents: int
     extracted_source_pages: int
+    completed_analyses: int
+    motions_awaiting_review: int
+    approved_motions: int
     total_audit_events: int
     recent_audit_events: list[AuditEventResponse]

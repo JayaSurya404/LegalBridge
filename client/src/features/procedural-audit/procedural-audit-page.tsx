@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ClipboardCheck, SearchCheck } from "lucide-react";
+import { AlertTriangle, SearchCheck } from "lucide-react";
 import { CasePage } from "@/components/shared/case-page";
 import { Confidence, SourceChip, StatusBadge } from "@/components/shared/status";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -16,15 +16,15 @@ export function ProceduralAuditPage() {
       caseId={caseId}
       eyebrow={record.reference}
       title="Procedural audit"
-      description="Demonstration-only screening for potential concerns. Every finding requires attorney verification against authentic records and governing law."
+      description="Issue-specific findings identify conflicting or missing information and the next practical review action."
     >
       {record.findings.length === 0 ? (
         <EmptyState
           title="No procedural findings are available"
           description={
             record.workflow.status === "completed"
-              ? "The orchestration simulation completed, but newly persisted backend cases do not receive case-specific findings because source extraction is not a legal-analysis pipeline."
-              : "Run the deterministic workflow on the preloaded synthetic matter to review closed demonstration-only screening results."
+              ? "The completed analysis did not identify a source-supported procedural issue."
+              : "Run analysis after processing documents to populate procedural findings."
           }
         />
       ) : (
@@ -61,10 +61,6 @@ export function ProceduralAuditPage() {
                   </div>
                   <Confidence value={finding.confidence} />
                 </div>
-                <p className="flex items-start gap-2 border-t border-[var(--border)] pt-4 text-xs leading-5 text-[var(--slate)]">
-                  <ClipboardCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                  Demonstration analysis only. This does not state that a real legal violation occurred.
-                </p>
               </CardContent>
             </Card>
           ))}

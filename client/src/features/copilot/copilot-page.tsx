@@ -7,7 +7,6 @@ import { CasePage } from "@/components/shared/case-page";
 import { EmptyState } from "@/components/shared/empty-state";
 import { UnknownCase } from "@/components/shared/unknown-case";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useCaseRecord } from "@/lib/hooks/use-case-record";
 import { useAppStore } from "@/stores/app-store";
@@ -48,16 +47,8 @@ export function CopilotPage() {
       caseId={caseId}
       eyebrow={record.reference}
       title="Case-aware Legal Copilot"
-      description="Deterministic answers use only case fields, stored document pages, persisted analysis, and synthetic authorities."
+      description="Answers retrieve only the selected case's extracted pages and persisted analysis, with inline source references."
     >
-      <Card className="mb-5 border-amber-200 bg-amber-50">
-        <CardContent className="p-4 text-sm leading-6 text-amber-950">
-          Synthetic legal-aid dataset · Not legal advice · Attorney verification
-          required · No automatic court filing. Unsupported questions receive an
-          explicit insufficient-source response.
-        </CardContent>
-      </Card>
-
       {!thread ? (
         <EmptyState
           title="No Copilot thread yet"

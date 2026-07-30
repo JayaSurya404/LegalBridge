@@ -35,11 +35,12 @@ export function StatusBadge({ status }: { status: string }) {
 }
 
 export function Confidence({ value }: { value: number }) {
+  const percentage = value >= 0 && value <= 1 ? Math.round(value * 100) : Math.round(value);
   return (
-    <div className="min-w-28" aria-label={`${value}% confidence`}>
+    <div className="min-w-28" aria-label={`${percentage}% confidence`}>
       <div className="mb-1 flex items-center justify-between text-xs text-[var(--slate)]">
         <span>Confidence</span>
-        <span className="font-semibold text-[var(--ink)]">{value}%</span>
+        <span className="font-semibold text-[var(--ink)]">{percentage}%</span>
       </div>
       <div
         className="h-1.5 overflow-hidden rounded-full bg-slate-200"
@@ -47,11 +48,11 @@ export function Confidence({ value }: { value: number }) {
         aria-label="Confidence"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={value}
+        aria-valuenow={percentage}
       >
         <div
           className="h-full rounded-full bg-[var(--green)]"
-          style={{ width: `${value}%` }}
+          style={{ width: `${percentage}%` }}
         />
       </div>
     </div>

@@ -2,11 +2,9 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
-  BarChart3,
   BriefcaseBusiness,
   ChevronLeft,
   ChevronRight,
-  FileStack,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -25,7 +23,6 @@ import { useAppStore } from "@/stores/app-store";
 const mainNavigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Cases", href: "/cases", icon: BriefcaseBusiness },
-  { label: "Observability", href: "/observability", icon: BarChart3 },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -79,12 +76,6 @@ function Navigation({
           );
         })}
       </nav>
-      {!collapsed && (
-        <div className="m-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">
-          <FileStack className="mb-2 size-4" aria-hidden="true" />
-          Cases, private originals, and extracted pages persist to the local API. Legal analysis remains synthetic.
-        </div>
-      )}
     </>
   );
 }
@@ -308,7 +299,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
         <footer className="no-print border-t border-[var(--border)] px-6 py-4 text-center text-xs leading-5 text-[var(--slate)]">
-          Attorney-assistance platform · Supabase-backed case persistence · Synthetic legal-aid dataset · Not legal advice · Attorney review required · No automatic court filing
+          <Link href="/settings" className="font-semibold hover:underline">Platform information</Link>
         </footer>
       </div>
     </div>

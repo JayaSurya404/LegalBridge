@@ -32,6 +32,7 @@ from app.services.document_processing import (
 from app.services.storage import (
     DocumentValidationError,
     StorageService,
+    create_storage_service,
 )
 
 router = APIRouter(prefix="/cases/{case_id}/documents", tags=["documents"])
@@ -40,7 +41,7 @@ document_editor = require_roles(UserRole.ADMIN, UserRole.ATTORNEY)
 
 def _storage(request: Request) -> StorageService:
     settings: Settings = request.app.state.settings
-    return StorageService(settings.storage_root, settings.max_upload_bytes)
+    return create_storage_service(settings)
 
 
 async def _get_document(

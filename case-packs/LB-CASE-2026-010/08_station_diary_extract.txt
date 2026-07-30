@@ -1,0 +1,42 @@
+Station Diary Extract
+Case number: LB-CASE-2026-010
+Document date: 18 February 2026
+Author or recording officer: Inspector Dev Menon
+Record section: 1 of 3
+
+This page records the initial account and identifies the people responsible for the entry.
+
+RECORD: officers_departure_time | 20:05 | The station diary records officers leaving the station.
+RECORD: electronic_export_time | 20:05 | The station diary notes preparation for electronic export.
+
+Related record: Chain Of Custody Log entry 1; compare with the case chronology where values differ.
+
+Fictional case record prepared for controlled platform evaluation.
+
+Station Diary Extract
+Case number: LB-CASE-2026-010
+Document date: 18 February 2026
+Author or recording officer: Inspector Dev Menon
+Record section: 2 of 3
+
+This page cross-references the related chronology and preserves the exact recorded value.
+
+RECORD: seal_code | SP-81 | The receiving entry records a different seal code.
+
+Related record: Chain Of Custody Log entry 2; compare with the case chronology where values differ.
+
+Fictional case record prepared for controlled platform evaluation.
+
+Station Diary Extract
+Case number: LB-CASE-2026-010
+Document date: 18 February 2026
+Author or recording officer: Inspector Dev Menon
+Record section: 3 of 3
+
+This page records evidence handling, unresolved differences, and the next source to compare.
+
+RECORD: device_id | DEVICE-CW-010 | The same device identifier appears in the receiving register.
+
+Related record: Chain Of Custody Log entry 3; compare with the case chronology where values differ.
+
+Fictional case record prepared for controlled platform evaluation.

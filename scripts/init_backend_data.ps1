@@ -12,7 +12,7 @@ Push-Location $serverRoot
 try {
     & $pythonExecutable -c "from app.core.config import get_settings; raise SystemExit(0 if get_settings().database_url.startswith('postgresql+asyncpg://') else 2)"
     if ($LASTEXITCODE -ne 0) {
-        throw "Hosted jury initialization requires an active PostgreSQL DATABASE_URL. SQLite remains the application fallback but is not accepted by this command."
+        throw "Hosted casework initialization requires an active PostgreSQL DATABASE_URL. SQLite remains the application fallback but is not accepted by this command."
     }
 
     Write-Host "Database engine: PostgreSQL"
@@ -41,9 +41,9 @@ try {
         throw "Phase 7-11 bootstrap failed with code $LASTEXITCODE."
     }
 
-    & $pythonExecutable -m app.scripts.bootstrap_jury_workspace
+    & $pythonExecutable -m app.scripts.bootstrap_casework_workspace
     if ($LASTEXITCODE -ne 0) {
-        throw "Jury workspace bootstrap failed with code $LASTEXITCODE."
+        throw "Casework workspace bootstrap failed with code $LASTEXITCODE."
     }
 }
 finally {

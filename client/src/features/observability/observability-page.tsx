@@ -57,7 +57,6 @@ export function ObservabilityPage() {
             </select>
           </label>
         }
-        synthetic
       />
 
       <section aria-label="Observability metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -1,0 +1,41 @@
+CCTV Export and Electronic Record Log
+Case number: LB-CASE-2026-010
+Document date: 18 February 2026
+Author or recording officer: Inspector Dev Menon
+Record section: 1 of 3
+
+This page records the initial account and identifies the people responsible for the entry.
+
+RECORD: electronic_export_time | 22:10 | The CCTV export log records completion of the copy.
+
+Related record: Electronic Record Log entry 1; compare with the case chronology where values differ.
+
+Fictional case record prepared for controlled platform evaluation.
+
+CCTV Export and Electronic Record Log
+Case number: LB-CASE-2026-010
+Document date: 18 February 2026
+Author or recording officer: Inspector Dev Menon
+Record section: 2 of 3
+
+This page cross-references the related chronology and preserves the exact recorded value.
+
+RECORD: electronic_certificate | incomplete | The certificate omits the hash-verification field and operator signature.
+
+Related record: Electronic Record Log entry 2; compare with the case chronology where values differ.
+
+Fictional case record prepared for controlled platform evaluation.
+
+CCTV Export and Electronic Record Log
+Case number: LB-CASE-2026-010
+Document date: 18 February 2026
+Author or recording officer: Inspector Dev Menon
+Record section: 3 of 3
+
+This page records evidence handling, unresolved differences, and the next source to compare.
+
+RECORD: device_id | DEVICE-CW-010 | The export manifest links the copied file to the seized device.
+
+Related record: Electronic Record Log entry 3; compare with the case chronology where values differ.
+
+Fictional case record prepared for controlled platform evaluation.

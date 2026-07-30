@@ -1,10 +1,10 @@
 "use client";
 
-import { BookOpenCheck, Search, SlidersHorizontal, TriangleAlert } from "lucide-react";
+import { BookOpenCheck, Search, SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CasePage } from "@/components/shared/case-page";
 import { EmptyState } from "@/components/shared/empty-state";
-import { SourceChip, StatusBadge } from "@/components/shared/status";
+import { StatusBadge } from "@/components/shared/status";
 import { UnknownCase } from "@/components/shared/unknown-case";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,22 +40,17 @@ export function ResearchPage() {
     <CasePage
       caseId={caseId}
       eyebrow={record.reference}
-      title="Demonstration authority explorer"
-      description="Closed synthetic records illustrate future legal-research review. They are original demo text—not verified statutes, judgments, or court citations."
+      title="Research references"
+      description="Review the topic, applicability, limitation, and source status for each available reference."
     >
       <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-amber-950">
-        Synthetic authorities — not official legal sources.
-        Attorney verification is required.
-      </div>
-      <div className="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-950">
-        <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
-        <p><strong>Demonstration authority — not verified legal corpus.</strong> No record on this page links to or claims verification against a real legal database.</p>
+        Training references are used until a verified official authority corpus is connected.
       </div>
       {record.authorities.length > 0 && (
         <Card className="mb-5">
           <CardContent className="grid gap-3 pt-5 lg:grid-cols-[1fr_15rem_12rem]">
             <label className="relative">
-              <span className="sr-only">Search demonstration authorities</span>
+              <span className="sr-only">Search training references</span>
               <Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-[var(--slate)]" aria-hidden="true" />
               <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search ID, title, or synthetic summary" className="pl-10" />
             </label>
@@ -93,7 +88,7 @@ export function ResearchPage() {
             <Card key={authority.id}>
               <CardHeader className="border-b border-[var(--border)]">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <SourceChip>{authority.id}</SourceChip>
+                  <StatusBadge status="Training reference" />
                   <div className="flex flex-wrap gap-2">
                     <StatusBadge status={authority.applicability} />
                     <StatusBadge status={authority.posture} />
@@ -108,7 +103,7 @@ export function ResearchPage() {
                   “{authority.passage}”
                 </blockquote>
                 <div className="mt-4 flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold text-[var(--green)]">Closed source record resolved</span>
+                  <span className="text-xs font-semibold text-[var(--green)]">Source status: training reference</span>
                   <Button variant="secondary" size="sm" onClick={() => setSelected(authority)}>
                     <SlidersHorizontal className="size-4" aria-hidden="true" /> Review applicability
                   </Button>
