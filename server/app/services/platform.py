@@ -407,7 +407,19 @@ async def _similar_cases(
 def _usable_nim_content(content: object) -> str | None:
     if not isinstance(content, str):
         return None
-    normalized = content.strip()
+    normalized = re.sub(r"^[\s\-–—:;,.#]+", "", content.strip())
+    normalized = re.sub(r"(?im)^\s*(we need to answer|now produce answer|let us analyse|we need craft).*?$", "", normalized)
+    normalized = re.sub(r"\n{3,}", "\n\n", normalized)
+    heading_counts: dict[str, int] = {}
+    kept_lines: list[str] = []
+    for line in normalized.splitlines():
+        heading = line.strip().casefold().lstrip("#").strip()
+        if heading in {"sources", "direct answer", "what the records show", "important inconsistencies", "recommended next steps"}:
+            heading_counts[heading] = heading_counts.get(heading, 0) + 1
+            if heading_counts[heading] > 1:
+                continue
+        kept_lines.append(line)
+    normalized = "\n".join(kept_lines).strip()
     lower = normalized.casefold()
     internal = ("we need to answer", "let us analyse", "we need craft")
     if len(normalized) < 80 or any(marker in lower for marker in internal):
@@ -429,6 +441,16 @@ async def _nvidia_nim_answer(
     )
     if not context:
         return None
+    legal_question = any(
+        term in question.casefold()
+        for term in ("statute", "section", "precedent", "authority", "law", "legal research")
+    )
+    authority_instruction = (
+        "No verified authority was retrieved from the current LegalBridge authority corpus. "
+        "State exactly: 'No verified authority is available in the current LegalBridge authority corpus.'"
+        if legal_question
+        else "Do not mention legal authorities unless one is supplied in the evidence."
+    )
     payload = {
         "model": settings.nvidia_nim_model,
         "temperature": 0,
@@ -441,7 +463,8 @@ async def _nvidia_nim_answer(
                     "files, pages, statutes, or precedents. Use these headings: Case status; What the records "
                     "show; Important inconsistencies; Recommended next steps; Sources. Cite every factual claim "
                     "with the exact [filename p.number] source label. Keep current-case evidence separate from "
-                    "general procedural guidance and state when a clarifying detail is needed."
+                    "general procedural guidance and state when a clarifying detail is needed. "
+                    f"{authority_instruction}"
                 ),
             },
             {"role": "user", "content": f"Question: {question}\n\n{context}"},
