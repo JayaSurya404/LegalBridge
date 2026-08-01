@@ -1,6 +1,6 @@
 # LegalBridge India current state
 
-Updated: 2026-07-29
+Updated: 2026-08-01
 
 Repository: `D:\LegalBridge`
 
@@ -47,6 +47,18 @@ The flagship `LB-MAIN-2026-001` bootstrap targets:
 Every authority is prominently synthetic and not official law. Motion approval
 is internal only, not a court signature. No automatic filing exists.
 
+## Deployed casework verification
+
+The active deployment is Vercel (`https://legal-bridge-pi.vercel.app`) backed
+by Render (`https://legalbridge-4.onrender.com`). Direct authentication,
+current-user, case-list, and dashboard requests were verified on 2026-08-01
+for the `legalbridge-casework` workspace.
+
+`LB-CASE-2026-012` has 10 persisted, processed source documents and a
+persisted analysis run. Its source-linked analysis is synthetic demonstration
+material requiring attorney verification. The seeded authority corpus is also
+synthetic and must not be presented as verified legal authority.
+
 ## Commands
 
 Apply the schema and seed only Phase 7–11 data:
@@ -76,11 +88,12 @@ Jury login: `legalbridge-main` /
 
 ## Production limitations
 
-Dockerfiles and a production compose example are present but nothing is
-deployed. Local private binaries are not durable on serverless filesystems;
-production requires private persistent object storage. It also requires secret
-rotation, a production review identity mechanism, official verified-authority
-ingestion, monitoring, backups, and full security/legal review.
+Dockerfiles and deployment configuration are present, and the current Vercel /
+Render deployment uses Supabase PostgreSQL. Render local binaries remain
+ephemeral, so production document storage must use the private Supabase storage
+provider. The platform still requires official verified-authority ingestion,
+monitoring, backups, secret rotation, and a full security/legal review before
+any non-demonstration use.
 
 Synthetic demonstration data. Not legal advice. Attorney verification
 required. No automatic court filing.
