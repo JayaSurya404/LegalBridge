@@ -4,6 +4,8 @@ Case 11 is a completed continuity-review reference.  Case 12 is intentionally
 created without documents so its ten files can be uploaded through the live UI.
 """
 
+# ruff: noqa: E501
+
 from __future__ import annotations
 
 import asyncio
@@ -19,21 +21,19 @@ from app.models.analysis import AnalysisRun
 from app.models.case import LegalCase
 from app.models.enums import CaseStatus
 from app.scripts.bootstrap_casework_workspace import (
-    ORGANIZATION_SLUG,
     PROFILES,
     REPOSITORY_ROOT,
     _ingest_source,
     _organization_and_users,
     _source,
-    _write_source,
     _write_docx,
     _write_pdf,
+    _write_source,
     _write_txt,
 )
 from app.services.analysis import run_case_analysis
 from app.services.audit import add_audit_event
 from app.services.storage import create_storage_service
-
 
 CASE_11_NUMBER = "LB-CASE-2026-011"
 CASE_12_NUMBER = "LB-CASE-2026-012"

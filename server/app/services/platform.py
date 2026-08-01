@@ -1,16 +1,19 @@
 """Shared serialization, aggregate queries, and deterministic Copilot responses."""
 
+# ruff: noqa: E501
+
 from __future__ import annotations
 
 import logging
 import re
-import httpx
 from datetime import date, datetime, time
 from typing import Any
 
+import httpx
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models.analysis import (
     AgentRun,
     AnalysisRun,
@@ -32,7 +35,6 @@ from app.models.analysis import (
 from app.models.case import LegalCase
 from app.models.document import DocumentRecord
 from app.models.document_page import DocumentPage
-from app.core.config import get_settings
 from app.models.user import User
 from app.services.analysis import cosine_similarity, hashed_vector, lexical_score
 
@@ -708,7 +710,7 @@ async def copilot_answer(
             lines = ["Extractive contradiction analysis from document RECORD fields (attorney verification required):\n"]
             for key, entries in conflicts.items():
                 lines.append(f"**{key.replace('_',' ').title()}** — {len(entries)} differing values:")
-                for k, v, detail, p, d in entries:
+                for _key, v, detail, p, d in entries:
                     lines.append(
                         f'  \u2022 "{v}" \u2014 {detail}'
                         f" [{d.original_filename} p.{p.page_number}]"
@@ -795,7 +797,7 @@ async def copilot_answer(
             unique_vals = list({e[1] for e in entries})
             note = " [MULTIPLE VALUES — possible contradiction]" if len(unique_vals) > 1 else ""
             lines.append(f"**{key.replace('_',' ').title()}**{note}")
-            for k, v, detail, p, d in entries[:3]:
+            for _key, v, detail, p, d in entries[:3]:
                 lines.append(f"  • {v} — {detail} [{d.original_filename} p.{p.page_number}]")
         if not lines[1:]:
             for _, p, d in selected[:4]:

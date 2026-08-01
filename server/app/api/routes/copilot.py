@@ -12,8 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import Principal, get_current_principal
-from app.core.config import get_settings
 from app.api.routes.cases import get_organization_case
+from app.core.config import get_settings
 from app.core.errors import ApplicationError
 from app.db.session import get_session
 from app.models.analysis import CopilotMessage, CopilotThread
@@ -24,19 +24,36 @@ from app.services.platform import copilot_answer, serialize_model
 router = APIRouter(prefix="/cases/{case_id}/copilot", tags=["copilot"])
 
 
-def _report_bytes(title: str, content: str, references: list[dict[str, str]], format: str) -> tuple[bytes, str]:
-    manifest = "\n".join(f"- {item['label']}" for item in references) or "- No source pages available"
-    body = f"{title}\nGenerated: {date.today().isoformat()}\n\nEvidence and analysis\n{content}\n\nSource manifest\n{manifest}\n\nAttorney review required. Not legal advice; no automatic court filing."
+def _report_bytes(
+    title: str,
+    content: str,
+    references: list[dict[str, str]],
+    format: str,
+) -> tuple[bytes, str]:
+    manifest = "\n".join(f"- {item['label']}" for item in references)
+    manifest = manifest or "- No source pages available"
+    body = (
+        f"{title}\nGenerated: {date.today().isoformat()}\n\n"
+        f"Evidence and analysis\n{content}\n\nSource manifest\n{manifest}\n\n"
+        "Attorney review required. Not legal advice; no automatic court filing."
+    )
     if format == "docx":
         document = Document()
         document.add_heading(title, level=0)
         for heading, text in (("Evidence and analysis", content), ("Source manifest", manifest)):
             document.add_heading(heading, level=1)
             document.add_paragraph(text)
-        stream = BytesIO(); document.save(stream)
-        return stream.getvalue(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    pdf = pymupdf.open(); page = pdf.new_page(); page.insert_textbox(pymupdf.Rect(48, 48, 547, 795), body, fontsize=10)
-    data = pdf.tobytes(); pdf.close()
+        stream = BytesIO()
+        document.save(stream)
+        return (
+            stream.getvalue(),
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+    pdf = pymupdf.open()
+    page = pdf.new_page()
+    page.insert_textbox(pymupdf.Rect(48, 48, 547, 795), body, fontsize=10)
+    data = pdf.tobytes()
+    pdf.close()
     return data, "application/pdf"
 
 
@@ -224,10 +241,42 @@ async def download_report(
     principal: Annotated[Principal, Depends(get_current_principal)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> StreamingResponse:
-    await _thread(session, organization_id=principal.organization.id, case_id=case_id, thread_id=thread_id)
-    question = {"chronology": "Build the complete chronology with sources.", "contradictions": "Explain all contradictions with sources.", "summary": "Summarise the complete case with sources."}[kind]
-    answer, references = await copilot_answer(session, organization_id=principal.organization.id, case_id=case_id, question=question)
-    content, media_type = _report_bytes(f"LegalBridge {kind.title()} Report", answer, references, format)
-    add_audit_event(session, organization_id=principal.organization.id, actor_user_id=principal.user.id, event_type="copilot_report_generated", message=f"Generated {format.upper()} Copilot {kind} report.", entity_type="copilot_thread", entity_id=thread_id, case_id=case_id)
+    await _thread(
+        session,
+        organization_id=principal.organization.id,
+        case_id=case_id,
+        thread_id=thread_id,
+    )
+    questions = {
+        "chronology": "Build the complete chronology with sources.",
+        "contradictions": "Explain all contradictions with sources.",
+        "summary": "Summarise the complete case with sources.",
+    }
+    answer, references = await copilot_answer(
+        session,
+        organization_id=principal.organization.id,
+        case_id=case_id,
+        question=questions[kind],
+    )
+    content, media_type = _report_bytes(
+        f"LegalBridge {kind.title()} Report",
+        answer,
+        references,
+        format,
+    )
+    add_audit_event(
+        session,
+        organization_id=principal.organization.id,
+        actor_user_id=principal.user.id,
+        event_type="copilot_report_generated",
+        message=f"Generated {format.upper()} Copilot {kind} report.",
+        entity_type="copilot_thread",
+        entity_id=thread_id,
+        case_id=case_id,
+    )
     await session.commit()
-    return StreamingResponse(BytesIO(content), media_type=media_type, headers={"Content-Disposition": f'attachment; filename="legalbridge-{kind}.{format}"'})
+    return StreamingResponse(
+        BytesIO(content),
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="legalbridge-{kind}.{format}"'},
+    )

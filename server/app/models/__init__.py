@@ -19,6 +19,9 @@ from app.models.analysis import (
     StrategyRecommendation,
     TimelineEventRecord,
 )
+from app.models.audit import AuditEvent
+from app.models.auth_session import AuthSession
+from app.models.case import LegalCase
 from app.models.copilot import (
     CaseMemory,
     CopilotArtifact,
@@ -26,9 +29,6 @@ from app.models.copilot import (
     CopilotExecutionRun,
     DocumentPageEmbedding,
 )
-from app.models.audit import AuditEvent
-from app.models.auth_session import AuthSession
-from app.models.case import LegalCase
 from app.models.document import DocumentRecord
 from app.models.document_page import DocumentPage
 from app.models.enums import CaseStatus, UserRole

@@ -686,7 +686,12 @@ async def run_case_analysis(
         search_time, search_observation = first_time("search_start_time")
         authorisation_time, authorisation_observation = first_time("authorisation_time")
         arrival_time, arrival_observation = first_time("officer_arrival_time")
-        if search_time and authorisation_time and search_time < authorisation_time and search_observation:
+        if (
+            search_time
+            and authorisation_time
+            and search_time < authorisation_time
+            and search_observation
+        ):
             procedural_candidates.append(
                 (
                     "seizure",
@@ -724,12 +729,28 @@ async def run_case_analysis(
                 )
             )
         for missing_key, title, description in (
-            ("software_version", "Missing software version", "The digital evidence certificate does not state the export software version."),
-            ("clock_synchronisation", "Missing clock synchronisation status", "The digital evidence certificate does not state the clock synchronisation status."),
-            ("certificate_signing_time", "Missing certificate signing time", "The digital evidence certificate does not state the certificate signing time."),
+            (
+                "software_version",
+                "Missing software version",
+                "The digital evidence certificate does not state the export software version.",
+            ),
+            (
+                "clock_synchronisation",
+                "Missing clock synchronisation status",
+                "The digital evidence certificate does not state the clock synchronisation status.",
+            ),
+            (
+                "certificate_signing_time",
+                "Missing certificate signing time",
+                "The digital evidence certificate does not state the certificate signing time.",
+            ),
         ):
             missing_observation = next(
-                (item for item in grouped.get(missing_key, []) if item.value.casefold() in {"missing", "not recorded", "absent"}),
+                (
+                    item
+                    for item in grouped.get(missing_key, [])
+                    if item.value.casefold() in {"missing", "not recorded", "absent"}
+                ),
                 None,
             )
             if missing_observation:

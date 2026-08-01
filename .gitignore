@@ -22,6 +22,7 @@ server/legalbridge.db-*
 server/*.egg-info/
 server/data/
 server/.pytest_cache/
+server/.pytest-temp/
 server/.ruff_cache/
 **/__pycache__/
 *.py[cod]
